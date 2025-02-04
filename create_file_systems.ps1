@@ -1,69 +1,59 @@
-# PowerStore Configuration
-$BaseUrl = "https://<MGMT_IP_ADDRESS>/api/rest"
-$Username = "<USERNAME>"
-$Password = "<PASSWORD>"
-$CsvFile = "file_systems.csv"
+# Prompt for PowerStore connection details
+$powerstoreIP = Read-Host "Enter PowerStore IP address"
+$username = Read-Host "Enter username"
+$password = Read-Host "Enter password" -AsSecureString
+$cred = New-Object System.Management.Automation.PSCredential($username, $password)
 
-# Ignore SSL warnings
-[System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+# Define the CSV file path
+$csvFile = "file_systems.csv"
+if (-Not (Test-Path $csvFile)) {
+    Write-Host "Error: CSV file '$csvFile' not found."
+    exit
+}
 
-# Function to get NAS server ID by name
-function Get-NasServerId {
-    param([string]$NasName)
-    $url = "$BaseUrl/nas_servers"
-    $response = Invoke-RestMethod -Uri $url -Method Get -Credential (New-Object System.Management.Automation.PSCredential($Username, (ConvertTo-SecureString $Password -AsPlainText -Force))) -SkipCertificateCheck
+# Import CSV file
+$fileSystems = Import-Csv -Path $csvFile
+$total = $fileSystems.Count
+Write-Host "Starting creation of $total filesystems..."
 
-    foreach ($nas in $response) {
-        if ($nas.name -eq $NasName) {
-            return $nas.id
+$counter = 0
+foreach ($fs in $fileSystems) {
+    $counter++
+    $fsName = $fs.FileSystemName
+    
+    # Update progress bar
+    Write-Progress -Activity "Creating File Systems" `
+                   -Status "Processing '$fsName'" `
+                   -PercentComplete (($counter / $total) * 100)
+    
+    Write-Host "[$counter/$total] Pending: Creating filesystem '$fsName'..."
+    
+    try {
+        # Construct the API endpoint URL
+        $url = "https://$powerstoreIP/api/v1/filesystems"
+        
+        # Build the request body as a hashtable
+        $body = @{
+            NAS_Name      = $fs.NAS_Name
+            NAS_IP        = $fs.NAS_IP
+            FileSystemName= $fs.FileSystemName
+            Size          = [int]$fs.Size
+            Protocol      = $fs.Protocol
         }
+        # Include Quota if provided
+        if ($fs.Quota -and $fs.Quota.Trim() -ne "") {
+            $body.Quota = [int]$fs.Quota
+        }
+        
+        # Convert the hashtable to JSON
+        $jsonBody = $body | ConvertTo-Json
+        
+        # Invoke REST API (Skip certificate check for self-signed certificates)
+        $response = Invoke-RestMethod -Uri $url -Method Post -Body $jsonBody `
+                    -ContentType "application/json" -Credential $cred -SkipCertificateCheck
+        Write-Host "[$counter/$total] Completed: Filesystem '$fsName' created. Response: $( $response | ConvertTo-Json -Depth 3 )"
     }
-    Write-Host "NAS server '$NasName' not found."
-    return $null
-}
-
-# Function to create a file system
-function Create-FileSystem {
-    param(
-        [string]$NasServerId,
-        [string]$FileSystemName,
-        [int]$Size,
-        [string]$Protocol,
-        [string]$Quota
-    )
-    $url = "$BaseUrl/file_systems"
-    $body = @{
-        name = $FileSystemName
-        nas_server_id = $NasServerId
-        size_total = $Size
-        default_access = $Protocol
-    }
-    if ($Quota) {
-        $body.quota = [int]$Quota
-    }
-    $bodyJson = $body | ConvertTo-Json -Depth 10
-    $response = Invoke-RestMethod -Uri $url -Method Post -Credential (New-Object System.Management.Automation.PSCredential($Username, (ConvertTo-SecureString $Password -AsPlainText -Force))) -Body $bodyJson -ContentType "application/json" -SkipCertificateCheck
-
-    if ($response) {
-        Write-Host "File system '$FileSystemName' created successfully."
-    } else {
-        Write-Host "Failed to create file system '$FileSystemName'."
-    }
-}
-
-# Main Script
-Import-Csv $CsvFile | ForEach-Object {
-    $NasName = $_.NAS_Name
-    $FileSystemName = $_.FileSystemName
-    $Size = [int]$_.Size
-    $Protocol = $_.Protocol
-    $Quota = $_.Quota
-
-    Write-Host "Processing file system '$FileSystemName' for NAS '$NasName'..."
-    $NasServerId = Get-NasServerId -NasName $NasName
-    if ($NasServerId) {
-        Create-FileSystem -NasServerId $NasServerId -FileSystemName $FileSystemName -Size $Size -Protocol $Protocol -Quota $Quota
-    } else {
-        Write-Host "Skipping file system creation for '$FileSystemName'."
+    catch {
+        Write-Host "[$counter/$total] Error: Could not create filesystem '$fsName'. $_"
     }
 }
