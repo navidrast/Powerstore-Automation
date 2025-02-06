@@ -9,131 +9,229 @@
 
 </div>
 
-This repository contains a collection of scripts to manage and automate tasks on Dell PowerStore arrays. Each script is designed to address a specific use case, such as creating file systems, managing NAS servers, and handling replication.
+A comprehensive collection of automation scripts for Dell PowerStore arrays, featuring both Python and PowerShell implementations for maximum flexibility.
 
-## Index of Scripts
+## Table of Contents
 
-| Script Name | Description | Language | Link to Instructions |
-|------------|-------------|-----------|---------------------|
-| `create_file_systems.py` | Automates file system creation using REST API | Python | [Instructions](#create_file_systemspy) |
-| `create_file_systems.ps1` | Automates file system creation using PowerShell | PowerShell | [Instructions](#create_file_systemsps1) |
-| `manage_nas_servers.py` | Manages NAS servers (create, update, delete) | Python | [Instructions](#manage_nas_serverspy) |
-| `replication_tasks.ps1` | Configures replication tasks for file systems | PowerShell | [Instructions](#replication_tasksps1) |
+- [Prerequisites](#prerequisites)
+- [Python Scripts](#python-scripts)
+  - [Installation](#python-installation)
+  - [File System Creation](#python-filesystem-creation)
+  - [NAS Server Management](#python-nas-management)
+- [PowerShell Scripts](#powershell-scripts)
+  - [Installation](#powershell-installation)
+  - [File System Creation](#powershell-filesystem-creation)
+  - [Replication Tasks](#powershell-replication)
+- [Contributing](#contributing)
+- [License](#license)
 
-## General Prerequisites
+## Prerequisites
 
-### PowerStore Requirements:
-- Dell PowerStore array with REST API access
-- Management IP address of the PowerStore array
-- A user account with API permissions
+### PowerStore Array Requirements
+- PowerStore OS version 2.0 or later
+- REST API access enabled
+- Management IP address configured
+- API user account with the following roles:
+  - Storage Administrator
+  - Storage Operator (minimum for read operations)
 
-### Host Requirements:
-- Windows Jump Host with:
-  - Python (3.x) installed, or
-  - PowerShell (v5.1 or later)
-- Internet access for installing dependencies (Python)
+### Network Requirements
+- HTTPS access to PowerStore array (Port 443)
+- DNS resolution for PowerStore management IP
+- Jump host with access to PowerStore management network
 
-### CSV File Requirements:
-Most scripts read configurations from a CSV file. Ensure the file format matches the requirements specified in the instructions for each script.
+## Python Scripts
 
-## Script Instructions
+### Python Installation
 
-### create_file_systems.py
-
-#### Description
-Automates the creation of file systems on PowerStore arrays by reading configurations from a CSV file.
-
-#### Prerequisites
-- Python 3.x installed
-- Dependencies installed via pip
-- CSV file named `file_systems.csv` with the following structure:
-
-```csv
-NAS_Name,NAS_IP,FileSystemName,Size,Quota,Protocol
-NAS1,192.168.1.10,FileSystem1,107374182400,,nfs
-NAS2,192.168.1.11,FileSystem2,53687091200,1000000000,smb
-```
-
-#### Steps to Run
-
-1. Clone this repository:
+1. Ensure Python 3.x is installed:
 ```bash
-git clone https://github.com/<your-repo>/powerstore_automation.git
-cd powerstore_automation
+python --version
 ```
 
-2. Update `powerstore_service.py` with your PowerStore credentials and management IP.
-
-3. Execute the script:
-```bash
-python create_file_systems.py
-```
-
-### create_file_systems.ps1
-
-#### Description
-Automates the creation of file systems using PowerShell and the REST API.
-
-#### Prerequisites
-- PowerShell v5.1 or later
-- CSV file named `file_systems.csv` (same structure as above)
-
-#### Steps to Run
-
-1. Clone this repository:
-```bash
-git clone https://github.com/<your-repo>/powerstore_automation.git
-cd powerstore_automation
-```
-
-2. Execute the script:
-```bash
-.\create_file_systems.ps1
-```
-
-### manage_nas_servers.py
-
-#### Description
-Provides automation for managing NAS servers, including creation, updating, and deletion.
-
-#### Prerequisites
-- Python 3.x installed
-- Dependencies installed via pip:
+2. Install required dependencies:
 ```bash
 pip install -r requirements.txt
 ```
-- CSV file containing NAS server details
 
-#### Steps to Run
-
-1. Update `manage_nas_servers.py` with your PowerStore credentials and management IP.
-
-2. Execute the script:
-```bash
-python manage_nas_servers.py
+Dependencies list (`requirements.txt`):
+```text
+requests>=2.25.1
+pandas>=1.2.0
+PyYAML>=5.4.1
+cryptography>=3.4.7
 ```
 
-### replication_tasks.ps1
+### Python Filesystem Creation
 
-#### Description
-Configures and manages replication tasks for file systems.
+#### Script: create_file_systems.py
 
-#### Prerequisites
-- PowerShell v5.1 or later
-- Configuration file with replication task details
+This script automates file system creation using PowerStore's REST API.
 
-#### Steps to Run
+##### Configuration
 
-1. Update `replication_tasks.ps1` with your PowerStore credentials and task details.
+1. Create your CSV configuration file (`file_systems.csv`):
+```csv
+NAS_Name,NAS_IP,FileSystemName,Size,Quota,Protocol,Description
+NAS1,192.168.1.10,FileSystem1,107374182400,,nfs,Production Data
+NAS2,192.168.1.11,FileSystem2,53687091200,1000000000,smb,Development Share
+```
 
-2. Execute the script:
+2. Update configuration in `config.yaml`:
+```yaml
+powerstore:
+  hostname: "powerstore.example.com"
+  username: "api_user"
+  verify_ssl: false
+  
+logging:
+  level: "INFO"
+  file: "powerstore_operations.log"
+```
+
+##### Usage
 ```bash
-.\replication_tasks.ps1
+python create_file_systems.py --config config.yaml --csv file_systems.csv
+```
+
+##### Features
+- Parallel file system creation
+- Detailed logging
+- Error handling with retry mechanism
+- Size conversion utilities
+- Protocol-specific optimisations
+
+### Python NAS Management
+
+#### Script: manage_nas_servers.py
+
+Comprehensive NAS server management tool supporting creation, modification, and deletion operations.
+
+##### Configuration Format
+```yaml
+nas_servers:
+  - name: "NAS_PRD"
+    ip: "192.168.1.100"
+    subnet_mask: "255.255.255.0"
+    gateway: "192.168.1.1"
+    domain: "example.com"
+  - name: "NAS_DEV"
+    ip: "192.168.1.101"
+    subnet_mask: "255.255.255.0"
+    gateway: "192.168.1.1"
+    domain: "dev.example.com"
+```
+
+##### Usage
+```bash
+python manage_nas_servers.py --action create --config nas_config.yaml
+python manage_nas_servers.py --action delete --name NAS_DEV
+```
+
+## PowerShell Scripts
+
+### PowerShell Installation
+
+#### Requirements
+- PowerShell 5.1 or PowerShell Core 7.x
+- PowerStore PowerShell Module
+
+```powershell
+# Install PowerStore Module
+Install-Module -Name DellPowerStore -Scope CurrentUser
+```
+
+### PowerShell Filesystem Creation
+
+#### Script: create_file_systems.ps1
+
+Automates file system creation using PowerShell and native PowerStore cmdlets.
+
+##### Input CSV Structure
+```csv
+NAS_Name,NAS_IP,FileSystemName,Size,Quota,Protocol,AccessPolicy
+NAS1,192.168.1.10,FileSystem1,107374182400,,nfs,UNIX
+NAS2,192.168.1.11,FileSystem2,53687091200,1000000000,smb,NATIVE
+```
+
+##### Features
+- Progress tracking with status bar
+- Detailed error handling
+- Parallel execution support
+- Size validation and conversion
+- Protocol-specific configuration
+
+##### Usage
+```powershell
+.\create_file_systems.ps1 -CsvPath .\file_systems.csv -Parallel
+```
+
+### PowerShell Replication
+
+#### Script: replication_tasks.ps1
+
+Manages replication relationships between PowerStore arrays.
+
+##### Configuration Example
+```powershell
+$replicationConfig = @{
+    SourceArray      = "powerstore-1.example.com"
+    DestinationArray = "powerstore-2.example.com"
+    RPO             = "5minutes"
+    FileSystems     = @("FS_PRD", "FS_HR")
+}
+```
+
+##### Features
+- RPO management
+- Automated failover testing
+- Replication health monitoring
+- Bandwidth throttling
+- Alert configuration
+
+##### Usage
+```powershell
+.\replication_tasks.ps1 -ConfigFile .\replication_config.json -ValidateOnly
+.\replication_tasks.ps1 -ConfigFile .\replication_config.json -Execute
+```
+
+## Error Handling
+
+Both Python and PowerShell scripts implement comprehensive error handling:
+
+```python
+try:
+    # Operation code
+except PowerStoreException as e:
+    logging.error(f"PowerStore error: {e.message}")
+    if e.error_code in RETRYABLE_ERRORS:
+        retry_operation()
+except Exception as e:
+    logging.error(f"Unexpected error: {str(e)}")
+```
+
+```powershell
+try {
+    # Operation code
+} catch [DellPowerStoreException] {
+    Write-Error "PowerStore error: $_"
+    if ($_.ErrorCode -in $retryableErrors) {
+        Invoke-RetryOperation
+    }
+} catch {
+    Write-Error "Unexpected error: $_"
+}
 ```
 
 ## Contributing
 
-Contributions are welcome! Feel free to submit issues or pull requests to improve the scripts or add new use cases.
+We welcome contributions! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
@@ -142,4 +240,6 @@ This repository is licensed under the MIT License. See the [LICENSE](./LICENSE) 
 ---
 <div align="center">
 Made with ❤️ for PowerStore automation
+
+[Report Bug](../../issues) · [Request Feature](../../issues)
 </div>
