@@ -17,6 +17,7 @@ $total = $fileSystems.Count
 Write-Host "Starting creation of $total filesystems..."
 
 $counter = 0
+
 foreach ($fs in $fileSystems) {
     $counter++
     $fsName = $fs.FileSystemName
@@ -37,20 +38,23 @@ foreach ($fs in $fileSystems) {
             NAS_Name       = $fs.NAS_Name
             NAS_IP         = $fs.NAS_IP
             FileSystemName = $fs.FileSystemName
-            Size           = [long]$fs.Size    # Changed from [int] to [long]
+            Size           = [long]$fs.Size    # Use 64-bit integer
             Protocol       = $fs.Protocol
         }
         # Include Quota if provided
         if ($fs.Quota -and $fs.Quota.Trim() -ne "") {
-            $body.Quota = [long]$fs.Quota     # Changed from [int] to [long]
+            $body.Quota = [long]$fs.Quota         # Use 64-bit integer
         }
         
         # Convert the hashtable to JSON
         $jsonBody = $body | ConvertTo-Json
         
-        # Invoke REST API (Skip certificate check for self-signed certificates)
+        # Bypass certificate validation (for self-signed certificates)
+        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
+        
+        # Invoke REST API without the -SkipCertificateCheck parameter
         $response = Invoke-RestMethod -Uri $url -Method Post -Body $jsonBody `
-                    -ContentType "application/json" -Credential $cred -SkipCertificateCheck
+                    -ContentType "application/json" -Credential $cred
         Write-Host "[$counter/$total] Completed: Filesystem '$fsName' created. Response: $( $response | ConvertTo-Json -Depth 3 )"
     }
     catch {
