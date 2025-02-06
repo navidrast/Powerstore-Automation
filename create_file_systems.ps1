@@ -45,16 +45,19 @@ foreach ($fs in $fileSystems) {
         Write-Host "[$counter/$total] Pending: Creating filesystem '$fsName' with protocol '$protocol'..."
 
         try {
-            # Construct the API endpoint URL (adjust if needed)
-            $url = "https://$powerstoreIP/api/v1/filesystems/"
+            # Get the NAS server details
+            $nasServer = Get-NasServer -Name $fs.NAS_Name -Credential $cred
+
+            # Construct the correct API endpoint URL
+            $url = "https://$powerstoreIP/api/v1/nas_server/$($nasServer.id)/file_system"
 
             # Build the request body as a hashtable using NAS details from the CSV
             $body = @{
-                NAS_Name       = $fs.NAS_Name       # Label from the CSV
-                NAS_IP         = $fs.NAS_IP         # Use NAS_IP from CSV now
+                NAS_Name       = $fs.NAS_Name
+                NAS_IP         = $fs.NAS_IP
                 FileSystemName = $fs.FileSystemName
                 Size           = [long]$fs.Size
-                Protocol       = $protocol         # Use the protocol from CSV (nfs or smb)
+                Protocol       = $protocol
             }
 
             # Include Quota if provided in CSV
