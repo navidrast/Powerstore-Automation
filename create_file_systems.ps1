@@ -34,15 +34,15 @@ foreach ($fs in $fileSystems) {
         
         # Build the request body as a hashtable
         $body = @{
-            NAS_Name      = $fs.NAS_Name
-            NAS_IP        = $fs.NAS_IP
-            FileSystemName= $fs.FileSystemName
-            Size          = [int]$fs.Size
-            Protocol      = $fs.Protocol
+            NAS_Name       = $fs.NAS_Name
+            NAS_IP         = $fs.NAS_IP
+            FileSystemName = $fs.FileSystemName
+            Size           = [long]$fs.Size    # Changed from [int] to [long]
+            Protocol       = $fs.Protocol
         }
         # Include Quota if provided
         if ($fs.Quota -and $fs.Quota.Trim() -ne "") {
-            $body.Quota = [int]$fs.Quota
+            $body.Quota = [long]$fs.Quota     # Changed from [int] to [long]
         }
         
         # Convert the hashtable to JSON
