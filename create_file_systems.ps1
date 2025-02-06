@@ -51,7 +51,7 @@ foreach ($fs in $fileSystems) {
             # Build the request body as a hashtable using NAS details from the CSV
             $body = @{
                 NAS_Name       = $fs.NAS_Name       # Label from the CSV
-                NAS_IP         = $fs.NAS_IP         # Use NAS_IP from CSV now
+                NAS_IP         = $fs.NAS_IP         # NAS IP from the CSV
                 FileSystemName = $fs.FileSystemName
                 Size           = [long]$fs.Size
                 Protocol       = $protocol         # Use the protocol from CSV (nfs or smb)
