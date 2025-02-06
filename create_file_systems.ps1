@@ -7,7 +7,7 @@ $cred = New-Object System.Management.Automation.PSCredential($username, $passwor
 # Prompt for NAS details (these will be used for all file system creations)
 $nasIP = Read-Host "Enter NAS IP address"
 
-# Define the CSV file path (make sure it exists in the current folder)
+# Define the CSV file path (ensure it exists in the current folder)
 $csvFile = "file_systems.csv"
 if (-Not (Test-Path $csvFile)) {
     Write-Host "Error: CSV file '$csvFile' not found."
@@ -34,15 +34,18 @@ foreach ($fs in $fileSystems) {
     $counter++
     $fsName = $fs.FileSystemName
 
-    # Check if Protocol is NFS (case-insensitive)
-    if ($fs.Protocol -ieq "nfs") {
+    # Ensure the Protocol field is trimmed and in lowercase
+    $protocol = ($fs.Protocol).Trim().ToLower()
+
+    if ($protocol -eq "nfs" -or $protocol -eq "smb") {
+
         # Calculate progress percentage
         $percentComplete = ($counter / $total) * 100
         Write-Progress -Activity "Creating File Systems" `
                        -Status "Processing '$fsName'" `
                        -PercentComplete $percentComplete
 
-        Write-Host "[$counter/$total] Pending: Creating filesystem '$fsName'..."
+        Write-Host "[$counter/$total] Pending: Creating filesystem '$fsName' with protocol '$protocol'..."
 
         try {
             # Construct the API endpoint URL (adjust if needed)
@@ -50,11 +53,11 @@ foreach ($fs in $fileSystems) {
 
             # Build the request body as a hashtable using the prompted NAS IP.
             $body = @{
-                NAS_Name       = $fs.NAS_Name    # For clarity; this is a label
+                NAS_Name       = $fs.NAS_Name    # This is a label from the CSV (optional)
                 NAS_IP         = $nasIP          # Use NAS IP from prompt
                 FileSystemName = $fs.FileSystemName
                 Size           = [long]$fs.Size
-                Protocol       = $fs.Protocol    # Use the Protocol from CSV (should be "nfs")
+                Protocol       = $protocol       # Use protocol from CSV (nfs or smb)
             }
 
             # Include Quota if provided in CSV
@@ -82,6 +85,6 @@ foreach ($fs in $fileSystems) {
         }
     }
     else {
-        Write-Host "[$counter/$total] No NFS Filesystem Requested for '$fsName'."
+        Write-Host "[$counter/$total] No valid filesystem protocol requested for '$fsName'."
     }
 }
