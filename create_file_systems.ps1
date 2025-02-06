@@ -4,9 +4,6 @@ $username = Read-Host "Enter username"
 $password = Read-Host "Enter password" -AsSecureString
 $cred = New-Object System.Management.Automation.PSCredential($username, $password)
 
-# Prompt for NAS details (these will be used for all file system creations)
-$nasIP = Read-Host "Enter NAS IP address"
-
 # Define the CSV file path (ensure it exists in the current folder)
 $csvFile = "file_systems.csv"
 if (-Not (Test-Path $csvFile)) {
@@ -51,13 +48,13 @@ foreach ($fs in $fileSystems) {
             # Construct the API endpoint URL (adjust if needed)
             $url = "https://$powerstoreIP/api/v1/filesystems/"
 
-            # Build the request body as a hashtable using the prompted NAS IP.
+            # Build the request body as a hashtable using NAS details from the CSV
             $body = @{
-                NAS_Name       = $fs.NAS_Name    # This is a label from the CSV (optional)
-                NAS_IP         = $nasIP          # Use NAS IP from prompt
+                NAS_Name       = $fs.NAS_Name       # Label from the CSV
+                NAS_IP         = $fs.NAS_IP         # Use NAS_IP from CSV now
                 FileSystemName = $fs.FileSystemName
                 Size           = [long]$fs.Size
-                Protocol       = $protocol       # Use protocol from CSV (nfs or smb)
+                Protocol       = $protocol         # Use the protocol from CSV (nfs or smb)
             }
 
             # Include Quota if provided in CSV
