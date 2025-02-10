@@ -52,21 +52,22 @@ foreach ($fs in $fileSystems) {
             $url = "https://$powerstoreIP/api/v1/nas_server/$($nasServer.id)/file_system"
 
             # Build the request body as a hashtable using NAS details from the CSV
+            # Convert Size (and Quota) values to strings to avoid integer conversion errors
             $body = @{
                 NAS_Name       = $fs.NAS_Name
                 NAS_IP         = $fs.NAS_IP
                 FileSystemName = $fs.FileSystemName
-                Size           = [long]$fs.Size
+                Size           = "$($fs.Size)"    # Converted to string
                 Protocol       = $protocol
             }
 
-            # Include Quota if provided in CSV
+            # Include Quota if provided in CSV (also as a string)
             if ($fs.Quota -and $fs.Quota.Trim() -ne "") {
-                $body.Quota = [long]$fs.Quota
+                $body.Quota = "$($fs.Quota)"
             }
 
             # Convert the hashtable to JSON
-            $jsonBody = $body | ConvertTo-Json
+            $jsonBody = $body | ConvertTo-Json -Depth 3
 
             # Debug output to check URL and payload
             Write-Host "API URL: $url"
