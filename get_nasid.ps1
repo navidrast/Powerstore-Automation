@@ -1,7 +1,17 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { param($sender, $certificate, $chain, $sslPolicyErrors) $true }
 
-$clusterMgmtIP = "your_powerstore_cluster_ip" # Replace with your PowerStore cluster management IP
+# Prompt for PowerStore IP address
+$clusterMgmtIP = Read-Host "Enter the PowerStore cluster management IP address"
+
+# Validate IP address (basic check)
+if ($clusterMgmtIP -match "^([0-9]{1,3}\.){3}[0-9]{1,3}$") {
+    Write-Host "Using PowerStore IP: $clusterMgmtIP"
+} else {
+    Write-Error "Invalid IP address format."
+    return # Exit the script
+}
+
 $outputFile = "C:\path\to\your\nas_server_ids.csv"  # Replace with desired path for the CSV file
 
 $cred = Get-Credential -Message "Enter PowerStore admin credentials"
