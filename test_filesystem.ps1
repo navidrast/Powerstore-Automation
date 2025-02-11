@@ -1,15 +1,17 @@
 # ==========================================================
 # Dell.PowerStore File System Creation Script
 # ==========================================================
+# Author: Navid Rastegani, navid.rastegani@optus.com.au
+#
 # This script performs the following:
 # 1. Checks if the Dell.PowerStore module is installed; if not, installs it.
-# 2. Prompts for the PowerStore management IP and admin credentials,
-#    then connects to the cluster.
+# 2. Prompts for the PowerStore management IP and admin credentials, then connects to the cluster.
 # 3. Lists available NAS servers and asks for confirmation.
-# 4. Checks for a CSV file named "FileSystems.csv" in the script's folder.
-#    If not found, prompts for the full CSV path.
+# 4. Determines the CSV file path:
+#      - It first checks if "FileSystems.csv" exists in the same folder as this script.
+#      - If not, it prompts for the full CSV file path.
 #    Expected CSV columns: FileSystemName, Protocol, NAS_ServerName, CapacityGB, QuotaGB
-# 5. Validates each record, converts GB values to bytes, and creates file systems via the REST API.
+# 5. Validates each record, converts capacity/quota from GB to bytes, and creates file systems via the REST API.
 # 6. Logs successes and failures.
 # 7. Generates an HTML report with the cluster name and creation results.
 # ==========================================================
@@ -45,7 +47,6 @@ if ($confirm -notmatch '^[Yy]') {
 }
 
 # ----- Step 3: Determine CSV File Path -----
-# First, check if a file named "FileSystems.csv" exists in the same folder as this script.
 if ($PSScriptRoot) {
     $defaultCsvPath = Join-Path -Path $PSScriptRoot -ChildPath "FileSystems.csv"
 } else {
@@ -124,7 +125,8 @@ foreach ($record in $fsRecords) {
     }
     
     # Build JSON payload for REST API.
-    # Adjust property names if necessary based on your API version.
+    # Adjust property names as necessary. This example uses:
+    # file_system_name, size, protocol, and optionally quota.
     $jsonObj = @{
         file_system_name = $fsName
         size             = $sizeBytes
