@@ -112,7 +112,8 @@ foreach ($record in $fsRecords) {
     }
     
     # Validate and convert CapacityGB to bytes (1 GB = 1073741824 bytes)
-    if (-not [double]::TryParse($record.CapacityGB, [ref]$null)) {
+    [double]$capacityGB = 0
+    if (-not [double]::TryParse($record.CapacityGB, [ref]$capacityGB)) {
         $report += [pscustomobject]@{
             FileSystem = $fsName
             NAS_Server = $nasServerName
@@ -121,7 +122,6 @@ foreach ($record in $fsRecords) {
         }
         continue
     }
-    $capacityGB = [double]$record.CapacityGB
     $sizeBytes = [math]::Round($capacityGB * 1073741824)
     
     # Process QuotaGB if provided (optional)
