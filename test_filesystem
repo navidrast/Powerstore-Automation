@@ -1,15 +1,27 @@
 # ==========================================================
 # Dell.PowerStore File System Creation Script
 # ==========================================================
-# This script:
-# 1. Prompts for the PowerStore management IP and admin credentials,
-#    then connects to the cluster.
-# 2. Lists available NAS servers and asks for confirmation.
-# 3. Prompts for a CSV file containing file system definitions.
+# This script performs the following:
+# 1. Checks if the Dell.PowerStore module is installed; if not, installs it.
+# 2. Prompts for the PowerStore management IP and admin credentials.
+# 3. Connects to the cluster.
+# 4. Lists available NAS servers and asks for confirmation to proceed.
+# 5. Prompts for a CSV file with file system definitions.
 #    Expected CSV columns: FileSystemName, Protocol, NAS_ServerName, CapacityGB, QuotaGB
-# 4. Validates each record, converts GB values to bytes, and creates file systems via the REST API.
-# 5. Generates an HTML report showing the cluster name and results.
+# 6. Validates each record, converts GB values to bytes, and creates file systems using the REST API.
+# 7. Logs successes and failures.
+# 8. Generates an HTML report with the cluster name and creation results.
 # ==========================================================
+
+# ----- Step 0: Ensure Required Module is Installed -----
+Write-Host "Checking if Dell.PowerStore module is installed..."
+if (-not (Get-Module -ListAvailable -Name Dell.PowerStore)) {
+    Write-Host "Dell.PowerStore module not found. Installing required module..." -ForegroundColor Yellow
+    Install-Module -Name Dell.PowerStore -Scope CurrentUser -Force -AllowClobber -Verbose
+} else {
+    Write-Host "Dell.PowerStore module is already installed." -ForegroundColor Green
+}
+Import-Module Dell.PowerStore -DisableNameChecking
 
 # ----- Step 1: Connect to the Cluster -----
 $clusterIP = Read-Host "Enter the PowerStore Management IP address"
@@ -25,7 +37,6 @@ if (-not $nasList) {
 }
 Write-Host "Available NAS Servers:" -ForegroundColor Cyan
 $nasList | Format-Table id, name, NAS_IP
-
 $confirm = Read-Host "Do you want to proceed with file system creation? (Y/N)"
 if ($confirm -notmatch '^[Yy]') {
     Write-Host "User cancelled. Exiting." -ForegroundColor Yellow
@@ -33,7 +44,6 @@ if ($confirm -notmatch '^[Yy]') {
 }
 
 # ----- Step 3: Read CSV File with File System Definitions -----
-# CSV should have columns: FileSystemName, Protocol, NAS_ServerName, CapacityGB, QuotaGB
 $csvPath = Read-Host "Enter the full path to the CSV file containing file system definitions"
 if (-not (Test-Path $csvPath)) {
     Write-Host "CSV file not found at $csvPath. Exiting." -ForegroundColor Red
@@ -47,8 +57,13 @@ if ($fsRecords.Count -eq 0) {
 
 # ----- Step 4: Process Each CSV Record and Create File Systems -----
 $report = @()  # Array to store results
+$total = $fsRecords.Count
+$counter = 0
 
 foreach ($record in $fsRecords) {
+    $counter++
+    Write-Progress -Activity "Processing CSV Records" -Status "Processing record $counter of $total" -PercentComplete (($counter/$total)*100)
+    
     $fsName = $record.FileSystemName.Trim()
     $protocol = $record.Protocol.Trim().ToLower()
     $nasServerName = $record.NAS_ServerName.Trim()
@@ -64,7 +79,7 @@ foreach ($record in $fsRecords) {
         continue
     }
     
-    # Match the NAS server from the list based on NAS_ServerName
+    # Match the NAS server based on the CSV NAS_ServerName
     $nas = $nasList | Where-Object { $_.Name -eq $nasServerName }
     if (-not $nas) {
         $report += [pscustomobject]@{
@@ -89,16 +104,15 @@ foreach ($record in $fsRecords) {
     $capacityGB = [double]$record.CapacityGB
     $sizeBytes = [math]::Round($capacityGB * 1073741824)
     
-    # Process QuotaGB if provided; it's optional
+    # Process QuotaGB if provided (optional)
     $quotaBytes = $null
     if ($record.QuotaGB -and [double]::TryParse($record.QuotaGB, [ref]$null)) {
         $quotaGB = [double]$record.QuotaGB
         $quotaBytes = [math]::Round($quotaGB * 1073741824)
     }
     
-    # Build JSON payload
-    # Adjust property names as needed based on your API version. Here we use:
-    # file_system_name, size, protocol, and optionally quota.
+    # Build JSON payload for REST API.
+    # Adjust property names if necessary (check your API version)
     $jsonObj = @{
         file_system_name = $fsName
         size             = $sizeBytes
@@ -107,9 +121,8 @@ foreach ($record in $fsRecords) {
     if ($quotaBytes) { $jsonObj.quota = $quotaBytes }
     $jsonPayload = $jsonObj | ConvertTo-Json -Depth 3
     
-    # Construct the REST API endpoint URL for creating a file system.
-    # Dell documentation indicates the endpoint:
-    # POST /nas_server/{nas_server_id}/fileSystem
+    # Construct API URL for file system creation
+    # Dell documentation: POST /nas_server/{nas_server_id}/fileSystem
     $apiUrl = "https://$clusterIP/api/rest/nas_server/$($nas.id)/fileSystem"
     
     Write-Host "Creating file system '$fsName' on NAS server '$nasServerName' (ID: $($nas.id))..."
@@ -119,7 +132,7 @@ foreach ($record in $fsRecords) {
     try {
         # Set TLS and bypass certificate validation if needed
         [System.Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { param($sender, $cert, $chain, $sslPolicyErrors) $true }
+        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { param($s,$c,$ch,$e) $true }
         
         $result = Invoke-RestMethod -Uri $apiUrl -Method Post -Body $jsonPayload -ContentType "application/json" -Credential $cred -SkipCertificateCheck
         $report += [pscustomobject]@{
@@ -140,12 +153,10 @@ foreach ($record in $fsRecords) {
 }
 
 # ----- Step 5: Generate HTML Report -----
-# Create an HTML report with a simple CSS style.
 $head = "<style>table, th, td { border: 1px solid black; border-collapse: collapse; padding: 5px; }</style>"
 $preContent = "<h1>Cluster: $($cluster.Name)</h1><p>Date: $(Get-Date)</p>"
 $htmlReport = $report | ConvertTo-Html -Head $head -Title "File System Creation Report for $($cluster.Name)" -PreContent $preContent
 
-# Determine the folder in which to save the report
 if ($PSScriptRoot) {
     $reportFolder = $PSScriptRoot
 } else {
@@ -153,5 +164,4 @@ if ($PSScriptRoot) {
 }
 $reportPath = Join-Path -Path $reportFolder -ChildPath "FileSystemCreationReport.html"
 $htmlReport | Out-File -FilePath $reportPath -Encoding UTF8
-
 Write-Host "HTML report generated at: $reportPath" -ForegroundColor Green
