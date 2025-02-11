@@ -8,9 +8,10 @@
 # 2. Prompts for the PowerStore management IP and admin credentials, then connects to the cluster.
 # 3. Lists available NAS servers and asks for confirmation.
 # 4. Determines the CSV file path:
-#      - It first checks if "FileSystems.csv" exists in the same folder as this script.
+#      - First, it checks if "FileSystems.csv" exists in the script folder.
 #      - If not, it prompts for the full CSV file path.
 #    Expected CSV columns: FileSystemName, Protocol, NAS_ServerName, CapacityGB, QuotaGB
+#    (If Protocol is blank, it defaults to "smb".)
 # 5. Validates each record, converts capacity/quota from GB to bytes, and creates file systems via the REST API.
 # 6. Logs successes and failures.
 # 7. Generates an HTML report with the cluster name and creation results.
@@ -79,6 +80,11 @@ foreach ($record in $fsRecords) {
     
     $fsName = $record.FileSystemName.Trim()
     $protocol = $record.Protocol.Trim().ToLower()
+    # If protocol is blank, default to "smb"
+    if ([string]::IsNullOrEmpty($protocol)) {
+        Write-Host "Protocol not specified for '$fsName'. Defaulting to 'smb'."
+        $protocol = "smb"
+    }
     $nasServerName = $record.NAS_ServerName.Trim()
     
     # Validate protocol: allow only "smb" or "nfs"
