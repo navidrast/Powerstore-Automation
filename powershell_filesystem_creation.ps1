@@ -1,5 +1,5 @@
 # ==========================================================
-# Dell.PowerStore File System Creation Script
+# Dell.PowerStore File System and SMB Share Creation Script
 # Author: Navid Rastegani, navid.rastegani@optus.com.au
 #
 # This script performs the following:
@@ -8,19 +8,20 @@
 #      then connects to the cluster (with -IgnoreCertErrors to bypass cert issues).
 #   3. Lists available NAS servers and asks for user confirmation.
 #   4. Determines the CSV file path:
-#         - First, checks if "FileSystems.csv" exists in the script folder.
+#         - First, checks for "FileSystems.csv" in the script folder.
 #         - Otherwise, prompts for the full CSV file path.
 #      Expected CSV columns: FileSystemName, NAS_ServerName, CapacityGB, QuotaGB, [Description, ConfigType, AccessPolicy]
-#      (Note: There is no Protocol column; the file system will follow the protocol defined on the NAS server.)
+#      (Note: There is no Protocol column; the file system will follow the NAS server's configured protocol.)
 #   5. Processes each CSV record:
-#         - Validates that CapacityGB is numeric and converts it to bytes.
-#         - Processes QuotaGB if provided.
-#         - Creates a file system using New-FileSystem.
-#   6. Logs successes and failures.
+#         - Validates input and converts capacity/quota from GB to bytes.
+#         - Checks if a file system with the same name already exists on the target NAS server.
+#         - If not, creates the file system via New-FileSystem.
+#         - If the file system exists, it skips creation for that record.
+#   6. Logs successes, failures, and skipped records.
 #   7. Generates an HTML report with the cluster name and a timestamp in the file name.
 # ==========================================================
 
-# ----- Step 0: Ensure Dell.PowerStore Module is Installed -----
+# ----- Step 0: Ensure Required Module is Installed -----
 Write-Host "Checking if Dell.PowerStore module is installed..."
 if (-not (Get-Module -ListAvailable -Name Dell.PowerStore)) {
     Write-Host "Dell.PowerStore module not found. Installing required module..." -ForegroundColor Yellow
@@ -33,7 +34,6 @@ Import-Module Dell.PowerStore -DisableNameChecking
 # ----- Step 1: Connect to the PowerStore Cluster -----
 $clusterIP = Read-Host "Enter the PowerStore Management IP address"
 $cred = Get-Credential -Message "Enter your PowerStore admin credentials"
-# Use -IgnoreCertErrors to bypass certificate errors if needed
 $cluster = Connect-Cluster -HostName $clusterIP -Credential $cred -IgnoreCertErrors
 Write-Host "Connected to cluster: $($cluster.Name)" -ForegroundColor Green
 
@@ -85,7 +85,7 @@ foreach ($record in $fsRecords) {
     $fsName = $record.FileSystemName.Trim()
     $nasServerName = $record.NAS_ServerName.Trim()
     
-    # Match the NAS server based on the CSV NAS_ServerName (exact match)
+    # Match the NAS server based on CSV NAS_ServerName (exact match)
     $nas = $nasList | Where-Object { $_.Name -eq $nasServerName }
     if (-not $nas) {
         $report += [pscustomobject]@{
@@ -93,6 +93,19 @@ foreach ($record in $fsRecords) {
             NAS_Server = $nasServerName
             Status     = "Failed"
             Message    = "NAS server '$nasServerName' not found"
+        }
+        continue
+    }
+    
+    # Check if a file system with the same name already exists on this NAS server.
+    $existingFS = Get-FileSystem -Cluster $cluster | Where-Object { $_.Name -eq $fsName -and $_.NasServerId -eq $nas.id }
+    if ($existingFS) {
+        Write-Host "File system '$fsName' already exists on NAS server '$nasServerName'. Skipping."
+        $report += [pscustomobject]@{
+            FileSystem = $fsName
+            NAS_Server = $nasServerName
+            Status     = "Skipped"
+            Message    = "File system already exists"
         }
         continue
     }
@@ -117,7 +130,7 @@ foreach ($record in $fsRecords) {
         $quotaBytes = [math]::Round($quotaGB * 1073741824)
     }
     
-    # Optional parameters from CSV (Description, ConfigType, AccessPolicy)
+    # Optional parameters (Description, ConfigType, AccessPolicy)
     $description = $null
     if ($record.Description) { $description = $record.Description.Trim() }
     $configType = $null
@@ -127,7 +140,7 @@ foreach ($record in $fsRecords) {
     
     Write-Host "Creating file system '$fsName' on NAS server '$nasServerName'..."
     try {
-        # Build the parameter list for New-FileSystem
+        # Build parameter list for New-FileSystem
         $params = @{
             Cluster   = $cluster
             NasServer = $nasServerName
