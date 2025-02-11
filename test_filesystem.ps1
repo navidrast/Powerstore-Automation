@@ -3,14 +3,15 @@
 # ==========================================================
 # This script performs the following:
 # 1. Checks if the Dell.PowerStore module is installed; if not, installs it.
-# 2. Prompts for the PowerStore management IP and admin credentials.
-# 3. Connects to the cluster.
-# 4. Lists available NAS servers and asks for confirmation to proceed.
-# 5. Prompts for a CSV file with file system definitions.
+# 2. Prompts for the PowerStore management IP and admin credentials,
+#    then connects to the cluster.
+# 3. Lists available NAS servers and asks for confirmation.
+# 4. Checks for a CSV file named "FileSystems.csv" in the script's folder.
+#    If not found, prompts for the full CSV path.
 #    Expected CSV columns: FileSystemName, Protocol, NAS_ServerName, CapacityGB, QuotaGB
-# 6. Validates each record, converts GB values to bytes, and creates file systems using the REST API.
-# 7. Logs successes and failures.
-# 8. Generates an HTML report with the cluster name and creation results.
+# 5. Validates each record, converts GB values to bytes, and creates file systems via the REST API.
+# 6. Logs successes and failures.
+# 7. Generates an HTML report with the cluster name and creation results.
 # ==========================================================
 
 # ----- Step 0: Ensure Required Module is Installed -----
@@ -43,8 +44,19 @@ if ($confirm -notmatch '^[Yy]') {
     exit
 }
 
-# ----- Step 3: Read CSV File with File System Definitions -----
-$csvPath = Read-Host "Enter the full path to the CSV file containing file system definitions"
+# ----- Step 3: Determine CSV File Path -----
+# First, check if a file named "FileSystems.csv" exists in the same folder as this script.
+if ($PSScriptRoot) {
+    $defaultCsvPath = Join-Path -Path $PSScriptRoot -ChildPath "FileSystems.csv"
+} else {
+    $defaultCsvPath = "FileSystems.csv"
+}
+if (Test-Path $defaultCsvPath) {
+    Write-Host "Using CSV file found in script folder: $defaultCsvPath" -ForegroundColor Green
+    $csvPath = $defaultCsvPath
+} else {
+    $csvPath = Read-Host "CSV file 'FileSystems.csv' not found in the script folder. Enter the full path to the CSV file"
+}
 if (-not (Test-Path $csvPath)) {
     Write-Host "CSV file not found at $csvPath. Exiting." -ForegroundColor Red
     exit
@@ -112,7 +124,7 @@ foreach ($record in $fsRecords) {
     }
     
     # Build JSON payload for REST API.
-    # Adjust property names if necessary (check your API version)
+    # Adjust property names if necessary based on your API version.
     $jsonObj = @{
         file_system_name = $fsName
         size             = $sizeBytes
