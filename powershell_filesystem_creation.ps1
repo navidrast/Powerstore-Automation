@@ -1,25 +1,23 @@
 # ==========================================================
-# Dell.PowerStore File System and SMB Share Creation Script
+# Dell.PowerStore File System Creation Script
 # Author: Navid Rastegani, navid.rastegani@optus.com.au
 #
 # This script performs the following:
-# 1. Checks for and installs the Dell.PowerStore module if missing.
-# 2. Prompts for the PowerStore Management IP and admin credentials,
-#    then connects to the cluster (using -IgnoreCertErrors).
-# 3. Lists available NAS servers and asks for confirmation.
-# 4. Determines the CSV file path:
-#      - First, checks for "FileSystems.csv" in the script folder.
-#      - Otherwise, prompts for the full CSV file path.
-#    Expected CSV columns:
-#      FileSystemName, Protocol, NAS_ServerName, CapacityGB, QuotaGB,
-#      Description, ConfigType, AccessPolicy
-#      (If Protocol is blank, defaults to "nfs".)
-# 5. Processes each CSV record:
-#      - Validates input and converts capacity/quota from GB to bytes.
-#      - Creates a file system via New-FileSystem.
-#      - If Protocol equals "smb", creates an SMB share on the new file system.
-# 6. Logs successes and failures.
-# 7. Generates an HTML report with the cluster name and a timestamp in the file name.
+#   1. Checks for and installs the Dell.PowerStore module if missing.
+#   2. Prompts for the PowerStore Management IP and admin credentials,
+#      then connects to the cluster (with -IgnoreCertErrors to bypass cert issues).
+#   3. Lists available NAS servers and asks for user confirmation.
+#   4. Determines the CSV file path:
+#         - First, checks if "FileSystems.csv" exists in the script folder.
+#         - Otherwise, prompts for the full CSV file path.
+#      Expected CSV columns: FileSystemName, NAS_ServerName, CapacityGB, QuotaGB, [Description, ConfigType, AccessPolicy]
+#      (Note: There is no Protocol column; the file system will follow the protocol defined on the NAS server.)
+#   5. Processes each CSV record:
+#         - Validates that CapacityGB is numeric and converts it to bytes.
+#         - Processes QuotaGB if provided.
+#         - Creates a file system using New-FileSystem.
+#   6. Logs successes and failures.
+#   7. Generates an HTML report with the cluster name and a timestamp in the file name.
 # ==========================================================
 
 # ----- Step 0: Ensure Dell.PowerStore Module is Installed -----
@@ -85,15 +83,9 @@ foreach ($record in $fsRecords) {
     Write-Progress -Activity "Processing CSV Records" -Status "Record $counter of $total" -PercentComplete (($counter/$total)*100)
     
     $fsName = $record.FileSystemName.Trim()
-    $protocol = $record.Protocol.Trim().ToLower()
-    # Default protocol to "nfs" if not provided
-    if ([string]::IsNullOrEmpty($protocol)) {
-        Write-Host "Protocol not specified for '$fsName'. Defaulting to 'nfs'."
-        $protocol = "nfs"
-    }
     $nasServerName = $record.NAS_ServerName.Trim()
     
-    # Validate that the NAS server exists (exact match on name)
+    # Match the NAS server based on the CSV NAS_ServerName (exact match)
     $nas = $nasList | Where-Object { $_.Name -eq $nasServerName }
     if (-not $nas) {
         $report += [pscustomobject]@{
@@ -153,28 +145,6 @@ foreach ($record in $fsRecords) {
             NAS_Server = $nasServerName
             Status     = "Success"
             Message    = "File system created (ID: $($fsResult.Id))"
-        }
-        
-        # If the CSV record's protocol is SMB, create an SMB share on the new file system.
-        if ($protocol -eq "smb") {
-            # For New-SmbShare, we need the FileSystemId (assumed to be available as $fsResult.Id)
-            # and a path. Typically, the share path begins with the file system's mountpoint,
-            # which we assume to be the file system name (this may need adjustment).
-            $shareParams = @{
-                Cluster       = $cluster
-                FileSystemId  = $fsResult.Id
-                Path          = "/$($fsResult.Name)"
-                Name          = "$($fsResult.Name)_Share"
-                Description   = "SMB Share for file system $($fsResult.Name)"
-            }
-            $smbResult = New-SmbShare @shareParams
-            Write-Host "SMB share '$($smbResult.Name)' created on file system '$fsName'."
-            $report += [pscustomobject]@{
-                FileSystem = "$fsName (SMB Share)"
-                NAS_Server = $nasServerName
-                Status     = "Success"
-                Message    = "SMB share '$($smbResult.Name)' created"
-            }
         }
     }
     catch {
