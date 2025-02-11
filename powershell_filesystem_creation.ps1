@@ -4,8 +4,8 @@
 #
 # This script performs the following:
 #   1. Checks for and installs the Dell.PowerStore module if missing.
-#   2. Prompts for the PowerStore Management IP and admin credentials,
-#      then connects to the cluster (with -IgnoreCertErrors to bypass cert issues).
+#   2. Prompts for the PowerStore Management IP and admin credentials, then connects to the cluster.
+#      If the cluster is already connected, it retrieves the existing connection.
 #   3. Lists available NAS servers and asks for user confirmation.
 #   4. Determines the CSV file path:
 #         - First, checks for "FileSystems.csv" in the script folder.
@@ -16,7 +16,7 @@
 #         - Validates input and converts capacity/quota from GB to bytes.
 #         - Checks if a file system with the same name already exists on the target NAS server.
 #         - If not, creates the file system via New-FileSystem.
-#         - If the file system exists, it skips creation for that record.
+#         - If it exists, skips creation for that record.
 #   6. Logs successes, failures, and skipped records.
 #   7. Generates an HTML report with the cluster name and a timestamp in the file name.
 # ==========================================================
@@ -34,8 +34,19 @@ Import-Module Dell.PowerStore -DisableNameChecking
 # ----- Step 1: Connect to the PowerStore Cluster -----
 $clusterIP = Read-Host "Enter the PowerStore Management IP address"
 $cred = Get-Credential -Message "Enter your PowerStore admin credentials"
-$cluster = Connect-Cluster -HostName $clusterIP -Credential $cred -IgnoreCertErrors
-Write-Host "Connected to cluster: $($cluster.Name)" -ForegroundColor Green
+
+try {
+    $cluster = Connect-Cluster -HostName $clusterIP -Credential $cred -IgnoreCertErrors
+    Write-Host "Connected to cluster: $($cluster.Name)" -ForegroundColor Green
+} catch {
+    if ($_.Exception.Message -match "already connected") {
+         Write-Host "Cluster $clusterIP is already connected. Retrieving existing connection..."
+         $cluster = Get-Cluster
+         Write-Host "Connected to cluster: $($cluster.Name)" -ForegroundColor Green
+    } else {
+         throw $_
+    }
+}
 
 # ----- Step 2: List NAS Servers and Confirm -----
 $nasList = Get-NasServer -Cluster $cluster
@@ -85,7 +96,7 @@ foreach ($record in $fsRecords) {
     $fsName = $record.FileSystemName.Trim()
     $nasServerName = $record.NAS_ServerName.Trim()
     
-    # Match the NAS server based on CSV NAS_ServerName (exact match)
+    # Match the NAS server based on the CSV NAS_ServerName (exact match)
     $nas = $nasList | Where-Object { $_.Name -eq $nasServerName }
     if (-not $nas) {
         $report += [pscustomobject]@{
@@ -140,7 +151,7 @@ foreach ($record in $fsRecords) {
     
     Write-Host "Creating file system '$fsName' on NAS server '$nasServerName'..."
     try {
-        # Build parameter list for New-FileSystem
+        # Build the parameter list for New-FileSystem
         $params = @{
             Cluster   = $cluster
             NasServer = $nasServerName
