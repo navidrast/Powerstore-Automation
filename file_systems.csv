@@ -1,3 +1,3 @@
-FileSystemName,Protocol,NAS_ServerName,CapacityGB,QuotaGB
-TestFS,smb,nas1,100,90
-MyFileSystem,nfs,nas2,200,
+FileSystemName,Protocol,NAS_ServerName,CapacityGB,QuotaGB,Description,ConfigType,AccessPolicy
+nfs_fs,nfs,NasServer01,50,,,General,Native
+smb_fs,smb,NasServer02,100,80,"File system for SMB share",,Windows
