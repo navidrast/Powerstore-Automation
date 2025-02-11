@@ -1,131 +1,141 @@
 # PowerStore Automation Scripts Repository
 
-<div align="center">
-
 ![PowerStore](https://img.shields.io/badge/Dell-PowerStore-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Python](https://img.shields.io/badge/Python-3.x-yellow)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1+-blue)
 
-</div>
-
-A comprehensive collection of automation scripts for Dell PowerStore arrays, featuring both Python and PowerShell implementations for maximum flexibility.
+An extensive suite of automation tools designed for Dell PowerStore arrays. This repository includes both Python and PowerShell scripts to streamline operations, enhance configuration management, and simplify replication tasks—all tailored for modern storage environments.
 
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
 - [Python Scripts](#python-scripts)
   - [Installation](#python-installation)
-  - [File System Creation](#python-filesystem-creation)
-  - [NAS Server Management](#python-nas-management)
+  - [File System Provisioning](#python-filesystem-provisioning)
+  - [NAS Server Operations](#python-nas-operations)
 - [PowerShell Scripts](#powershell-scripts)
   - [Installation](#powershell-installation)
-  - [File System Creation](#powershell-filesystem-creation)
-  - [Replication Tasks](#powershell-replication)
+  - [File System Provisioning](#powershell-filesystem-provisioning)
+  - [Replication Management](#powershell-replication-management)
+- [Error Handling](#error-handling)
 - [Contributing](#contributing)
 - [License](#license)
 
 ## Prerequisites
 
 ### PowerStore Array Requirements
-- PowerStore OS version 2.0 or later
-- REST API access enabled
-- Management IP address configured
-- API user account with the following roles:
+
+- PowerStore OS version 2.0 or newer
+- REST API access must be enabled
+- A properly configured management IP address
+- An API user account with at least the following roles:
   - Storage Administrator
-  - Storage Operator (minimum for read operations)
+  - Storage Operator (for read-only operations)
 
 ### Network Requirements
-- HTTPS access to PowerStore array (Port 443)
-- DNS resolution for PowerStore management IP
-- Jump host with access to PowerStore management network
+
+- Secure HTTPS access (Port 443) to the PowerStore array
+- Reliable DNS resolution for the management IP
+- Access via a dedicated jump host if required by your network architecture
 
 ## Python Scripts
 
 ### Python Installation
 
-1. Ensure Python 3.x is installed:
+1. Confirm that Python 3.x is installed:
+
 ```bash
 python --version
 ```
 
-2. Install required dependencies:
+2. Install the necessary dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-Dependencies list (`requirements.txt`):
-```text
-requests>=2.25.1
-pandas>=1.2.0
-PyYAML>=5.4.1
-cryptography>=3.4.7
-```
+The `requirements.txt` includes:
+- requests>=2.25.1
+- pandas>=1.2.0
+- PyYAML>=5.4.1
+- cryptography>=3.4.7
 
-### Python Filesystem Creation
+### Python Filesystem Provisioning
 
-#### Script: create_file_systems.py
+Script: `create_file_systems.py`
 
-This script automates file system creation using PowerStore's REST API.
+This tool provisions file systems on your PowerStore array using its REST API. It processes configuration details from a CSV file and uses a YAML file to define connection parameters and logging settings.
 
-##### Configuration
+#### Configuration
 
-1. Create your CSV configuration file (`file_systems.csv`):
+Prepare a CSV file (`file_systems.csv`) with the following structure:
+
 ```csv
 NAS_Name,NAS_IP,FileSystemName,Size,Quota,Protocol,Description
-NAS1,192.168.1.10,FileSystem1,107374182400,,nfs,Production Data
-NAS2,192.168.1.11,FileSystem2,53687091200,1000000000,smb,Development Share
+NAS_Main,192.168.100.10,ProdFS,107374182400,,nfs,Primary Production Data
+NAS_Backup,192.168.100.11,BackupFS,53687091200,2000000000,smb,Secondary Backup Share
 ```
 
-2. Update configuration in `config.yaml`:
+Adjust the YAML configuration file (`config.yaml`) as needed:
+
 ```yaml
 powerstore:
-  hostname: "powerstore.example.com"
+  hostname: "powerstore.company.com"
   username: "api_user"
   verify_ssl: false
-  
+
 logging:
-  level: "INFO"
-  file: "powerstore_operations.log"
+  level: "DEBUG"
+  file: "automation.log"
 ```
 
-##### Usage
+#### Usage
+
+Run the script with:
+
 ```bash
 python create_file_systems.py --config config.yaml --csv file_systems.csv
 ```
 
-##### Features
-- Parallel file system creation
-- Detailed logging
-- Error handling with retry mechanism
-- Size conversion utilities
-- Protocol-specific optimisations
+#### Key Features
 
-### Python NAS Management
+- Concurrent provisioning of file systems for efficiency
+- Comprehensive logging to track each operation
+- Robust retry mechanisms to handle transient failures
+- Utility functions for size conversion and protocol optimisations
 
-#### Script: manage_nas_servers.py
+### Python NAS Server Operations
 
-Comprehensive NAS server management tool supporting creation, modification, and deletion operations.
+Script: `manage_nas_servers.py`
 
-##### Configuration Format
+This script manages NAS server configurations on PowerStore. It supports creation, updates, and deletions based on a structured YAML configuration file.
+
+#### Configuration Format
+
+Define your NAS server settings in a YAML file (e.g., `nas_config.yaml`):
+
 ```yaml
 nas_servers:
-  - name: "NAS_PRD"
-    ip: "192.168.1.100"
+  - name: "NAS_Enterprise"
+    ip: "192.168.200.100"
     subnet_mask: "255.255.255.0"
-    gateway: "192.168.1.1"
-    domain: "example.com"
-  - name: "NAS_DEV"
-    ip: "192.168.1.101"
+    gateway: "192.168.200.1"
+    domain: "enterprise.company.com"
+  - name: "NAS_Test"
+    ip: "192.168.200.101"
     subnet_mask: "255.255.255.0"
-    gateway: "192.168.1.1"
-    domain: "dev.example.com"
+    gateway: "192.168.200.1"
+    domain: "test.company.com"
 ```
 
-##### Usage
+#### Usage
+
+Execute the following commands for server operations:
+
 ```bash
 python manage_nas_servers.py --action create --config nas_config.yaml
-python manage_nas_servers.py --action delete --name NAS_DEV
+python manage_nas_servers.py --action delete --name NAS_Test
 ```
 
 ## PowerShell Scripts
@@ -133,75 +143,95 @@ python manage_nas_servers.py --action delete --name NAS_DEV
 ### PowerShell Installation
 
 #### Requirements
+
 - PowerShell 5.1 or PowerShell Core 7.x
-- PowerStore PowerShell Module
+- Dell PowerStore PowerShell Module installed
+
+To install the module:
 
 ```powershell
-# Install PowerStore Module
+# Install the Dell PowerStore module for current user
 Install-Module -Name DellPowerStore -Scope CurrentUser
 ```
 
-### PowerShell Filesystem Creation
+### PowerShell Filesystem Provisioning
 
-#### Script: create_file_systems.ps1
+Script: `create_file_systems.ps1`
 
-Automates file system creation using PowerShell and native PowerStore cmdlets.
+This script automates the creation of file systems using native PowerStore cmdlets. It reads configuration details from a CSV file and supports parallel processing.
 
-##### Input CSV Structure
+#### Input CSV Structure
+
+Your CSV file should resemble:
+
 ```csv
 NAS_Name,NAS_IP,FileSystemName,Size,Quota,Protocol,AccessPolicy
-NAS1,192.168.1.10,FileSystem1,107374182400,,nfs,UNIX
-NAS2,192.168.1.11,FileSystem2,53687091200,1000000000,smb,NATIVE
+NAS_Main,192.168.100.10,ProdFS,107374182400,,nfs,UNIX
+NAS_Backup,192.168.100.11,BackupFS,53687091200,2000000000,smb,NATIVE
 ```
 
-##### Features
-- Progress tracking with status bar
-- Detailed error handling
-- Parallel execution support
-- Size validation and conversion
-- Protocol-specific configuration
+#### Features
 
-##### Usage
+- Visual progress indicators for long-running operations
+- Detailed error capture and logging
+- Parallel execution to expedite bulk provisioning
+- Input validation for sizes and protocol-specific configurations
+
+#### Usage
+
+Run the script as follows:
+
 ```powershell
 .\create_file_systems.ps1 -CsvPath .\file_systems.csv -Parallel
 ```
 
-### PowerShell Replication
+### PowerShell Replication Management
 
-#### Script: replication_tasks.ps1
+Script: `replication_tasks.ps1`
 
-Manages replication relationships between PowerStore arrays.
+This script facilitates the management of replication settings between PowerStore arrays. It supports both simulation (validation) and full execution modes.
 
-##### Configuration Example
+#### Configuration Example
+
+Configure your replication settings in a JSON file (or pass a PowerShell hash table):
+
 ```powershell
 $replicationConfig = @{
-    SourceArray      = "powerstore-1.example.com"
-    DestinationArray = "powerstore-2.example.com"
-    RPO             = "5minutes"
-    FileSystems     = @("FS_PRD", "FS_HR")
+    SourceArray      = "powerstore-1.company.com"
+    DestinationArray = "powerstore-2.company.com"
+    RPO              = "5minutes"
+    FileSystems      = @("ProdFS", "BackupFS")
 }
 ```
 
-##### Features
-- RPO management
-- Automated failover testing
-- Replication health monitoring
-- Bandwidth throttling
-- Alert configuration
+#### Features
 
-##### Usage
+- Configurable RPO settings and automated health checks
+- Support for dry-run validation to test configurations safely
+- Bandwidth management and failover testing capabilities
+- Alerts and notifications on replication status
+
+#### Usage
+
+To validate the configuration without making changes:
+
 ```powershell
 .\replication_tasks.ps1 -ConfigFile .\replication_config.json -ValidateOnly
+```
+
+For actual execution:
+
+```powershell
 .\replication_tasks.ps1 -ConfigFile .\replication_config.json -Execute
 ```
 
 ## Error Handling
 
-Both Python and PowerShell scripts implement comprehensive error handling:
+Both the Python and PowerShell scripts include extensive error handling to ensure reliability:
 
 ```python
 try:
-    # Operation code
+    # Core operation
 except PowerStoreException as e:
     logging.error(f"PowerStore error: {e.message}")
     if e.error_code in RETRYABLE_ERRORS:
@@ -212,7 +242,7 @@ except Exception as e:
 
 ```powershell
 try {
-    # Operation code
+    # Core operation
 } catch [DellPowerStoreException] {
     Write-Error "PowerStore error: $_"
     if ($_.ErrorCode -in $retryableErrors) {
@@ -225,21 +255,18 @@ try {
 
 ## Contributing
 
-We welcome contributions! Please follow these steps:
+Contributions are highly encouraged! To contribute:
 
 1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+2. Create a new branch for your feature or bug fix
+3. Commit your changes with clear, descriptive messages
+4. Push your branch and open a Pull Request
+5. Ensure your changes are accompanied by documentation updates and, if possible, test cases
 
 ## License
 
-This repository is licensed under the MIT License. See the [LICENSE](./LICENSE) file for more details.
+This repository is licensed under the MIT License. See the LICENSE file for full details.
 
 ---
-<div align="center">
-Made with ❤️ for PowerStore automation
 
-[Report Bug](../../issues) · [Request Feature](../../issues)
-</div>
+*Report Bug · Request Feature*
