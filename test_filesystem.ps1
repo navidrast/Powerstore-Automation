@@ -15,6 +15,7 @@
 # 5. Validates each record, converts capacity/quota from GB to bytes, and creates file systems via the REST API.
 # 6. Logs successes and failures.
 # 7. Generates an HTML report with the cluster name and creation results.
+#    The report file name is based on the array hostname and the date of the report.
 # ==========================================================
 
 # ----- Step 0: Ensure Required Module is Installed -----
@@ -80,7 +81,7 @@ foreach ($record in $fsRecords) {
     
     $fsName = $record.FileSystemName.Trim()
     $protocol = $record.Protocol.Trim().ToLower()
-    # If protocol is blank, default to "smb"
+    # Default protocol to "smb" if blank
     if ([string]::IsNullOrEmpty($protocol)) {
         Write-Host "Protocol not specified for '$fsName'. Defaulting to 'smb'."
         $protocol = "smb"
@@ -131,8 +132,7 @@ foreach ($record in $fsRecords) {
     }
     
     # Build JSON payload for REST API.
-    # Adjust property names as necessary. This example uses:
-    # file_system_name, size, protocol, and optionally quota.
+    # Adjust property names as necessary based on your API version.
     $jsonObj = @{
         file_system_name = $fsName
         size             = $sizeBytes
@@ -177,11 +177,16 @@ $head = "<style>table, th, td { border: 1px solid black; border-collapse: collap
 $preContent = "<h1>Cluster: $($cluster.Name)</h1><p>Date: $(Get-Date)</p>"
 $htmlReport = $report | ConvertTo-Html -Head $head -Title "File System Creation Report for $($cluster.Name)" -PreContent $preContent
 
+# Create a timestamp string for the file name (format: yyyyMMdd_HHmmss)
+$timestamp = (Get-Date).ToString("yyyyMMdd_HHmmss")
+# Build the report file name using the cluster name and timestamp
+$reportFileName = "$($cluster.Name)_$timestamp.html"
+
 if ($PSScriptRoot) {
     $reportFolder = $PSScriptRoot
 } else {
     $reportFolder = Get-Location
 }
-$reportPath = Join-Path -Path $reportFolder -ChildPath "FileSystemCreationReport.html"
+$reportPath = Join-Path -Path $reportFolder -ChildPath $reportFileName
 $htmlReport | Out-File -FilePath $reportPath -Encoding UTF8
 Write-Host "HTML report generated at: $reportPath" -ForegroundColor Green
