@@ -5,22 +5,20 @@
 # This script:
 #   1. Checks for and installs the Dell.PowerStore module if missing.
 #   2. Prompts for the PowerStore Management IP and admin credentials (stored for this session),
-#      then connects to the cluster (with -IgnoreCertErrors).
-#   3. Lists available NAS servers and asks for user confirmation.
+#      then connects to the cluster (using -IgnoreCertErrors).
+#   3. Lists available NAS servers and asks for confirmation.
 #   4. Determines the CSV file path:
-#         - Checks if "FileSystems.csv" exists in the script folder.
+#         - Checks for "FileSystems.csv" in the script folder.
 #         - Otherwise, prompts for the full CSV file path.
-#      Expected CSV columns: FileSystemName, NAS_ServerName, Capacity (GiB), Quota (GiB),
-#         Description, ConfigType, AccessPolicy, and optionally:
-#         Allocated (GiB), Protocol, Restricted Replication Access, Snapshots,
-#         Snapshot Space Used (GiB), Snapshot Schedule, Thin, Tiering Policy,
-#         Used (GiB), Synchronous, Asynchronous, Data Reduction, Data Reduction Savings (GiB),
-#         Advanced Deduplication.
-#         (The file system will follow the NAS server's default protocol.)
+#      Expected CSV columns: FileSystemName, NAS_ServerName, Capacity (GiB) / CapacityGB, Quota (GiB) / QuotaGB,
+#         Description, ConfigType, AccessPolicy, plus optional extra fields.
+#         (There is no Protocol column; the file system uses the NAS server's default protocol.)
 #   5. Processes each CSV record:
 #         - Validates inputs and converts capacity/quota from GiB to bytes.
 #         - Checks if a file system with the same name already exists on the target NAS server.
-#           If it exists, updates settings using Set-FileSystem if applicable; if not, skips creation.
+#             - If it exists, updates settings using Set-FileSystem (including Description, ConfigType,
+#               AccessPolicy, and Quota if provided).
+#             - Otherwise, creates a new file system using New-FileSystem.
 #         - Captures any extra CSV fields for reporting.
 #   6. Logs outcomes (Success, Updated, Skipped, Failed) for each record.
 #   7. Generates an HTML report with the cluster name and a timestamp in the file name.
@@ -102,7 +100,7 @@ $report = @()  # Array to store results
 $total = $fsRecords.Count
 $counter = 0
 
-# Extra CSV headers for reporting (optional)
+# Define extra CSV headers for reporting purposes.
 $extraHeaders = @("Allocated (GiB)","Protocol","Restricted Replication Access","Snapshots",
                   "Snapshot Space Used (GiB)","Snapshot Schedule","Thin","Tiering Policy",
                   "Used (GiB)","Synchronous","Asynchronous","Data Reduction",
@@ -128,12 +126,12 @@ foreach ($record in $fsRecords) {
         continue
     }
     
-    # Check if file system with the same name already exists on this NAS server.
+    # Check if file system with the same name exists on this NAS server.
     $existingFS = Get-FileSystem -Cluster $cluster | Where-Object { $_.Name -eq $fsName -and $_.NasServerId -eq $nas.id }
     if ($existingFS) {
-        Write-Host "File system '$fsName' already exists on NAS server '$nasServerName'. Skipping creation and updating settings..."
+        Write-Host "File system '$fsName' already exists on NAS server '$nasServerName'. Updating settings..."
         try {
-            # Build update parameter list (only updating optional fields)
+            # Build update parameter list (update optional fields: Description, ConfigType, AccessPolicy, Quota)
             $updateParams = @{
                 Cluster      = $cluster
                 FileSystemId = $existingFS.Id
@@ -141,6 +139,14 @@ foreach ($record in $fsRecords) {
             if ($record.Description) { $updateParams.Description = $record.Description.Trim() }
             if ($record.ConfigType) { $updateParams.ConfigType = $record.ConfigType.Trim() }
             if ($record.AccessPolicy) { $updateParams.AccessPolicy = $record.AccessPolicy.Trim() }
+            if ($record.QuotaGB -or $record."Quota (GiB)") {
+                $qVal = $record."Quota (GiB)"
+                if (-not $qVal) { $qVal = $record.QuotaGB }
+                if ([double]::TryParse($qVal, [ref]$null)) {
+                    $quotaGB = [double]$qVal
+                    $updateParams.Quota = [math]::Round($quotaGB * 1073741824)
+                }
+            }
             Set-FileSystem @updateParams
             $action = "Updated"
             $msg = "File system updated successfully"
@@ -148,7 +154,7 @@ foreach ($record in $fsRecords) {
             $action = "Update Failed"
             $msg = $_.Exception.Message
         }
-        
+        # Capture extra CSV fields for reporting.
         $extraSettings = @{}
         foreach ($header in $extraHeaders) {
             if ($record.PSObject.Properties.Name -contains $header) {
@@ -165,7 +171,7 @@ foreach ($record in $fsRecords) {
         continue
     }
     
-    # Validate and convert Capacity (GiB) to bytes (1GB = 1073741824 bytes)
+    # Validate and convert Capacity to bytes (using "Capacity (GiB)" or CapacityGB)
     $capacityVal = $record."Capacity (GiB)"
     if (-not $capacityVal) { $capacityVal = $record.CapacityGB }
     if (-not [double]::TryParse($capacityVal, [ref]$null)) {
@@ -181,7 +187,7 @@ foreach ($record in $fsRecords) {
     $capacityGB = [double]$capacityVal
     $sizeBytes = [math]::Round($capacityGB * 1073741824)
     
-    # Process Quota if provided (using "Quota (GiB)" or QuotaGB)
+    # Process Quota (using "Quota (GiB)" or QuotaGB)
     $quotaVal = $record."Quota (GiB)"
     if (-not $quotaVal) { $quotaVal = $record.QuotaGB }
     $quotaBytes = $null
@@ -209,7 +215,6 @@ foreach ($record in $fsRecords) {
         if ($description) { $params.Description = $description }
         if ($configType) { $params.ConfigType = $configType }
         if ($accessPolicy) { $params.AccessPolicy = $accessPolicy }
-        
         $fsResult = New-FileSystem @params
         $action = "Success"
         $msg = "File system created (ID: $($fsResult.Id))"
@@ -225,7 +230,6 @@ foreach ($record in $fsRecords) {
             $extraSettings[$header] = $record.$header
         }
     }
-    
     $report += [pscustomobject]@{
         FileSystem = $fsName
         NAS_Server = $nasServerName
@@ -238,4 +242,15 @@ foreach ($record in $fsRecords) {
 # ----- Step 5: Generate HTML Report -----
 $head = "<style>table, th, td { border: 1px solid black; border-collapse: collapse; padding: 5px; }</style>"
 $preContent = "<h1>Cluster: $($cluster.Name)</h1><p>Date: $(Get-Date)</p>"
-$htmlReport = $
+$htmlReport = $report | ConvertTo-Html -Head $head -Title "File System Creation Report for $($cluster.Name)" -PreContent $preContent
+
+$timestamp = (Get-Date).ToString("yyyyMMdd_HHmmss")
+$reportFileName = "$($cluster.Name)_$timestamp.html"
+if ($PSScriptRoot) {
+    $reportFolder = $PSScriptRoot
+} else {
+    $reportFolder = Get-Location
+}
+$reportPath = Join-Path -Path $reportFolder -ChildPath $reportFileName
+$htmlReport | Out-File -FilePath $reportPath -Encoding UTF8
+Write-Host "HTML report generated at: $reportPath" -ForegroundColor Green
