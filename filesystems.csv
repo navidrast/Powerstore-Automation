@@ -1,3 +1,3 @@
-FileSystemName,NAS_ServerName,Capacity (GiB),Quota (GiB),Description,ConfigType,AccessPolicy,Allocated (GiB),Restricted Replication Access,Thin,Tiering Policy,Synchronous,Asynchronous,Data Reduction,Data Reduction Savings (GiB),Advanced Deduplication
-nfs_fs1,NasServer01,50,,,,,150,Yes,Yes,Standard,Yes,No,Enabled,5,No
-smb_fs1,NasServer02,100,80,"File system for SMB share",,Windows,150,Yes,Yes,Standard,Yes,No,Enabled,5,No
+FileSystemName,NAS_ServerName,Capacity (GiB),Quota (GiB),Description,ConfigType,AccessPolicy,Allocated (GiB),Restricted Replication Access,Snapshot Space Used (GiB),Snapshot Schedule,Thin,Tiering Policy,Synchronous,Asynchronous,Data Reduction,Data Reduction Savings (GiB),Advanced Deduplication
+nfs_fs1,NasServer01,50,,,,,150,Yes,10,Daily,Yes,Standard,Yes,No,Enabled,5,No
+smb_fs1,NasServer02,100,80,"File system for SMB share",,Windows,150,Yes,5,Weekly,No,Premium,No,Yes,Enabled,8,Yes
