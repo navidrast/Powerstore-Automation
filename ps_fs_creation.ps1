@@ -5,19 +5,22 @@
 # This script:
 #   1. Checks for and installs the Dell.PowerStore module if missing.
 #   2. Prompts for the PowerStore Management IP and admin credentials (stored for this session),
-#      then connects to the cluster (using -IgnoreCertErrors).
+#      then connects to the cluster (with -IgnoreCertErrors).
 #   3. Lists available NAS servers and asks for confirmation.
 #   4. Determines the CSV file path:
-#         - Checks for "FileSystems.csv" in the script folder.
+#         - Checks if "FileSystems.csv" exists in the script folder.
 #         - Otherwise, prompts for the full CSV file path.
 #      Expected CSV columns: FileSystemName, NAS_ServerName, Capacity (GiB) / CapacityGB, Quota (GiB) / QuotaGB,
-#         Description, ConfigType, AccessPolicy, plus optional extra fields.
-#         (There is no Protocol column; the file system uses the NAS server's default protocol.)
+#         Description, ConfigType, AccessPolicy, and optionally:
+#         Allocated (GiB), Protocol, Restricted Replication Access, Snapshot Space Used (GiB),
+#         Snapshot Schedule, Thin, Tiering Policy, Synchronous, Asynchronous, Data Reduction,
+#         Data Reduction Savings (GiB), Advanced Deduplication.
+#         (There is no Protocol column for file system creation; the file system uses the NAS server's default protocol.)
 #   5. Processes each CSV record:
-#         - Validates inputs and converts capacity/quota from GiB to bytes.
+#         - Validates input and converts capacity/quota from GiB to bytes.
 #         - Checks if a file system with the same name already exists on the target NAS server.
-#             - If it exists, updates settings using Set-FileSystem (including Description, ConfigType,
-#               AccessPolicy, and Quota if provided).
+#             - If it exists, updates settings (including Description, ConfigType, AccessPolicy, and Quota if provided;
+#               also applies –EnableSmbSyncWrites and –EnableAsyncMountTime based on CSV values) using Set-FileSystem.
 #             - Otherwise, creates a new file system using New-FileSystem.
 #         - Captures any extra CSV fields for reporting.
 #   6. Logs outcomes (Success, Updated, Skipped, Failed) for each record.
@@ -100,11 +103,10 @@ $report = @()  # Array to store results
 $total = $fsRecords.Count
 $counter = 0
 
-# Define extra CSV headers for reporting purposes.
-$extraHeaders = @("Allocated (GiB)","Protocol","Restricted Replication Access","Snapshots",
-                  "Snapshot Space Used (GiB)","Snapshot Schedule","Thin","Tiering Policy",
-                  "Used (GiB)","Synchronous","Asynchronous","Data Reduction",
-                  "Data Reduction Savings (GiB)","Advanced Deduplication")
+# Define extra CSV headers for reporting (include the ones required)
+$extraHeaders = @("Allocated (GiB)","Restricted Replication Access","Snapshot Space Used (GiB)",
+                  "Snapshot Schedule","Thin","Tiering Policy","Synchronous","Asynchronous",
+                  "Data Reduction","Data Reduction Savings (GiB)","Advanced Deduplication")
 
 foreach ($record in $fsRecords) {
     $counter++
@@ -131,7 +133,6 @@ foreach ($record in $fsRecords) {
     if ($existingFS) {
         Write-Host "File system '$fsName' already exists on NAS server '$nasServerName'. Updating settings..."
         try {
-            # Build update parameter list (update optional fields: Description, ConfigType, AccessPolicy, Quota)
             $updateParams = @{
                 Cluster      = $cluster
                 FileSystemId = $existingFS.Id
@@ -147,6 +148,13 @@ foreach ($record in $fsRecords) {
                     $updateParams.Quota = [math]::Round($quotaGB * 1073741824)
                 }
             }
+            # Optional: Add sync/async settings based on CSV values (Yes/No)
+            if ($record.Synchronous -and $record.Synchronous.Trim().ToLower() -eq "yes") {
+                $updateParams.EnableSmbSyncWrites = $true
+            }
+            if ($record.Asynchronous -and $record.Asynchronous.Trim().ToLower() -eq "yes") {
+                $updateParams.EnableAsyncMountTime = $true
+            }
             Set-FileSystem @updateParams
             $action = "Updated"
             $msg = "File system updated successfully"
@@ -154,7 +162,6 @@ foreach ($record in $fsRecords) {
             $action = "Update Failed"
             $msg = $_.Exception.Message
         }
-        # Capture extra CSV fields for reporting.
         $extraSettings = @{}
         foreach ($header in $extraHeaders) {
             if ($record.PSObject.Properties.Name -contains $header) {
@@ -204,17 +211,26 @@ foreach ($record in $fsRecords) {
     $accessPolicy = $null
     if ($record.AccessPolicy) { $accessPolicy = $record.AccessPolicy.Trim() }
     
+    # Build parameter list for New-FileSystem
+    $params = @{
+        Cluster   = $cluster
+        NasServer = $nasServerName
+        Name      = $fsName
+        Size      = $sizeBytes
+    }
+    if ($description) { $params.Description = $description }
+    if ($configType) { $params.ConfigType = $configType }
+    if ($accessPolicy) { $params.AccessPolicy = $accessPolicy }
+    # Add sync/async settings if provided
+    if ($record.Synchronous -and $record.Synchronous.Trim().ToLower() -eq "yes") {
+        $params.EnableSmbSyncWrites = $true
+    }
+    if ($record.Asynchronous -and $record.Asynchronous.Trim().ToLower() -eq "yes") {
+        $params.EnableAsyncMountTime = $true
+    }
+    
     Write-Host "Creating file system '$fsName' on NAS server '$nasServerName'..."
     try {
-        $params = @{
-            Cluster   = $cluster
-            NasServer = $nasServerName
-            Name      = $fsName
-            Size      = $sizeBytes
-        }
-        if ($description) { $params.Description = $description }
-        if ($configType) { $params.ConfigType = $configType }
-        if ($accessPolicy) { $params.AccessPolicy = $accessPolicy }
         $fsResult = New-FileSystem @params
         $action = "Success"
         $msg = "File system created (ID: $($fsResult.Id))"
