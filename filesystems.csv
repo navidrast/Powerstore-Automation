@@ -1,3 +1,3 @@
-FileSystemName,NAS_ServerName,CapacityGB,QuotaGB,Description,ConfigType,AccessPolicy
-nfs_fs,NasServer01,50,,,General,Native
-smb_fs,NasServer02,100,80,"File system for SMB share",,Windows
+FileSystemName,NAS_ServerName,Capacity (GiB),Quota (GiB),Description,ConfigType,AccessPolicy,Allocated (GiB),Protocol,Restricted Replication Access,Snapshots,Snapshot Space Used (GiB),Snapshot Schedule,Thin,Tiering Policy,Used (GiB),Synchronous,Asynchronous,Data Reduction,Data Reduction Savings (GiB),Advanced Deduplication
+nfs_fs1,NasServer01,50,,,,,,,,,,,,,,,,,,
+smb_fs1,NasServer02,100,80,"File system for SMB share",,Windows,150,,Yes,2,10,Daily,Yes,Standard,95,Yes,No,Enabled,5,No
