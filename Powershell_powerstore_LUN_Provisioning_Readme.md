@@ -1,3 +1,37 @@
+# PowerStore Automation Scripts (PowerShell)
+
+Comprehensive Dell PowerStore LUN provisioning and reporting automation scripts written in PowerShell that match your existing CSV export formats.
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Quick Start Guide](#quick-start-guide)
+- [Detailed Usage Instructions](#detailed-usage-instructions)
+- [CSV File Formats](#csv-file-formats)
+- [Report Outputs](#report-outputs)
+- [Troubleshooting](#troubleshooting)
+- [Advanced Configuration](#advanced-configuration)
+- [Security Considerations](#security-considerations)
+- [Examples](#examples)
+
+## Overview
+
+This automation suite provides two main PowerShell scripts:
+
+1. **`PowerStore-LUN-Provision.ps1`** - Provisions LUNs based on CSV input and generates detailed reports
+2. **`PowerStore-Report-Generator.ps1`** - Generates comprehensive inventory reports matching your existing CSV exports
+
+Both scripts use PowerStore REST API directly and support your existing data formats without requiring additional Python dependencies.
+
+## Prerequisites
+
+### System Requirements
+- **PowerShell**: 5.1 or higher (Windows PowerShell or PowerShell Core)
+- **Operating System**: Windows 10/11, Windows Server 2016+, or PowerShell Core on Linux/macOS
+- **Network**: HTTPS connectivity to PowerStore management interface
 - **Memory**: Minimum 512MB RAM available for PowerShell
 - **Storage**: 100MB free space for logs and reports
 
@@ -882,37 +916,3 @@ function Start-LogRotation {
 Name,Size_GB,Pool,Description,Host_Names,Thin_Provisioned
 webapp_data_01,1024,Pool0,Web application data volume,webhost1;webhost2,Yes
 webapp_logs_01,256,# PowerStore Automation Scripts (PowerShell)
-
-Comprehensive Dell PowerStore LUN provisioning and reporting automation scripts written in PowerShell that match your existing CSV export formats.
-
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Quick Start Guide](#quick-start-guide)
-- [Detailed Usage Instructions](#detailed-usage-instructions)
-- [CSV File Formats](#csv-file-formats)
-- [Report Outputs](#report-outputs)
-- [Troubleshooting](#troubleshooting)
-- [Advanced Configuration](#advanced-configuration)
-- [Security Considerations](#security-considerations)
-- [Examples](#examples)
-
-## Overview
-
-This automation suite provides two main PowerShell scripts:
-
-1. **`PowerStore-LUN-Provision.ps1`** - Provisions LUNs based on CSV input and generates detailed reports
-2. **`PowerStore-Report-Generator.ps1`** - Generates comprehensive inventory reports matching your existing CSV exports
-
-Both scripts use PowerStore REST API directly and support your existing data formats without requiring additional Python dependencies.
-
-## Prerequisites
-
-### System Requirements
-- **PowerShell**: 5.1 or higher (Windows PowerShell or PowerShell Core)
-- **Operating System**: Windows 10/11, Windows Server 2016+, or PowerShell Core on Linux/macOS
-- **Network**: HTTPS connectivity to PowerStore management interface
-- **Memory**:
