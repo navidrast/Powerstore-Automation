@@ -1,38 +1,4 @@
-# PowerStore Automation Scripts
-
-Comprehensive Dell PowerStore LUN provisioning and reporting automation scripts that match your existing CSV export formats.
-
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Quick Start Guide](#quick-start-guide)
-- [Detailed Usage Instructions](#detailed-usage-instructions)
-- [CSV File Formats](#csv-file-formats)
-- [Report Outputs](#report-outputs)
-- [Troubleshooting](#troubleshooting)
-- [Advanced Configuration](#advanced-configuration)
-- [Security Considerations](#security-considerations)
-- [Examples](#examples)
-
-## Overview
-
-This automation suite provides two main scripts:
-
-1. **`powerstore_lun_provision.py`** - Provisions LUNs based on CSV input and generates detailed reports
-2. **`powerstore_report_generator.py`** - Generates comprehensive inventory reports matching your existing CSV exports
-
-Both scripts use the official Dell PyPowerStore library and support your existing data formats.
-
-## Prerequisites
-
-### System Requirements
-- **Python**: 3.8 or higher
-- **Operating System**: Windows, Linux, or macOS
-- **Network**: Connectivity to PowerStore management interface
-- **Memory**: Minimum 512MB RAM
+- **Memory**: Minimum 512MB RAM available for PowerShell
 - **Storage**: 100MB free space for logs and reports
 
 ### PowerStore Requirements
@@ -50,35 +16,54 @@ Your PowerStore user account needs these minimum permissions:
 
 ## Installation
 
-### Step 1: Install Python Dependencies
-
-Open a command prompt or terminal and run:
-
-```bash
-# Install required Python packages
-pip install PyPowerStore pandas configparser pathlib
-
-# For development/testing (optional)
-pip install pytest pytest-cov
-```
-
-### Step 2: Download Scripts
+### Step 1: Download Scripts
 
 Download the following files to your working directory:
-- `powerstore_lun_provision.py`
-- `powerstore_report_generator.py`
+- `PowerStore-LUN-Provision.ps1`
+- `PowerStore-Report-Generator.ps1`
 - `README.md` (this file)
 
-### Step 3: Verify Installation
+### Step 2: Set Execution Policy
 
-Test the installation:
+If running on Windows, you may need to adjust the PowerShell execution policy:
 
-```bash
-# Check Python version
-python --version
+```powershell
+# Check current execution policy
+Get-ExecutionPolicy
 
-# Verify package installation
-python -c "import PyPowerStore, pandas; print('Installation successful')"
+# Set execution policy to allow local scripts (run as Administrator)
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# Alternative: Bypass execution policy for specific session
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+```
+
+### Step 3: Verify PowerShell Version
+
+Check your PowerShell version:
+
+```powershell
+# Check PowerShell version
+$PSVersionTable.PSVersion
+
+# Should show 5.1 or higher
+```
+
+### Step 4: Test Network Connectivity
+
+Verify connectivity to your PowerStore array:
+
+```powershell
+# Test basic connectivity (replace with your PowerStore IP)
+Test-NetConnection -ComputerName "192.168.1.100" -Port 443
+
+# Test HTTPS connectivity
+try {
+    Invoke-WebRequest -Uri "https://192.168.1.100" -UseBasicParsing
+    Write-Host "HTTPS connectivity successful" -ForegroundColor Green
+} catch {
+    Write-Host "HTTPS connectivity failed: $($_.Exception.Message)" -ForegroundColor Red
+}
 ```
 
 ## Configuration
@@ -87,39 +72,42 @@ python -c "import PyPowerStore, pandas; print('Installation successful')"
 
 Generate a sample configuration file:
 
-```bash
-python powerstore_lun_provision.py --sample-config
+```powershell
+.\PowerStore-LUN-Provision.ps1 -CreateSampleConfig
 ```
 
-This creates `config.ini` with the following structure:
+This creates `config.json` with the following structure:
 
-```ini
-[powerstore]
-management_ip = 192.168.1.100
-username = admin
-password = your_password_here
-verify_ssl = False
-
-[logging]
-level = INFO
-log_file = powerstore_provision.log
+```json
+{
+  "PowerStore": {
+    "ManagementIP": "192.168.1.100",
+    "Username": "admin",
+    "Password": "your_password_here",
+    "VerifySSL": false
+  },
+  "Logging": {
+    "Level": "INFO",
+    "LogFile": "PowerStore-Provision.log"
+  }
+}
 ```
 
 ### Step 2: Update Configuration
 
-Edit `config.ini` with your PowerStore details:
+Edit `config.json` with your PowerStore details:
 
-1. **management_ip**: Your PowerStore management IP address
-2. **username**: PowerStore username with provisioning permissions
-3. **password**: PowerStore user password
-4. **verify_ssl**: Set to `True` for production environments
+1. **ManagementIP**: Your PowerStore management IP address
+2. **Username**: PowerStore username with provisioning permissions
+3. **Password**: PowerStore user password
+4. **VerifySSL**: Set to `true` for production environments
 
 ### Step 3: Test Connection
 
 Verify connectivity:
 
-```bash
-python powerstore_lun_provision.py -c config.ini --inventory
+```powershell
+.\PowerStore-LUN-Provision.ps1 -ConfigFile "config.json" -GetInventory
 ```
 
 If successful, you'll see current LUN inventory displayed.
@@ -128,15 +116,15 @@ If successful, you'll see current LUN inventory displayed.
 
 ### 1. Generate Sample CSV Template
 
-```bash
-python powerstore_lun_provision.py --sample-csv
+```powershell
+.\PowerStore-LUN-Provision.ps1 -CreateSampleCSV
 ```
 
 This creates `sample_luns.csv` with the correct format.
 
 ### 2. Edit CSV File
 
-Open `sample_luns.csv` and modify according to your requirements:
+Open `sample_luns.csv` in Excel or notepad and modify according to your requirements:
 
 ```csv
 Name,Size_GB,Pool,Description,Host_Names,Thin_Provisioned
@@ -146,8 +134,8 @@ dev_db_lun_01,512,Pool0,Development database,devhost1,Yes
 
 ### 3. Provision LUNs
 
-```bash
-python powerstore_lun_provision.py -c config.ini -i sample_luns.csv -o provision_report.csv
+```powershell
+.\PowerStore-LUN-Provision.ps1 -ConfigFile "config.json" -InputCSV "sample_luns.csv" -OutputReport "provision_report.csv"
 ```
 
 ### 4. Review Results
@@ -158,128 +146,133 @@ Check the console output and `provision_report.csv` for detailed results.
 
 ### LUN Provisioning Script
 
-#### Basic Usage
+#### Basic Syntax
 
-```bash
-python powerstore_lun_provision.py [OPTIONS]
+```powershell
+.\PowerStore-LUN-Provision.ps1 [Parameters]
 ```
 
-#### Command Line Options
+#### Parameters
 
-| Option | Description | Example |
-|--------|-------------|---------|
-| `-c, --config` | Configuration file path (required) | `-c config.ini` |
-| `-i, --input` | Input CSV file with LUN specifications | `-i luns_to_provision.csv` |
-| `-o, --output` | Output CSV file for provision report | `-o provision_report.csv` |
-| `--inventory` | Get current LUN inventory | `--inventory` |
-| `--sample-csv` | Create sample CSV file | `--sample-csv` |
-| `--sample-config` | Create sample config file | `--sample-config` |
+| Parameter | Type | Required | Description | Example |
+|-----------|------|----------|-------------|---------|
+| `-ConfigFile` | String | No | Configuration file path | `-ConfigFile "config.json"` |
+| `-InputCSV` | String | No | Input CSV file with LUN specifications | `-InputCSV "luns.csv"` |
+| `-OutputReport` | String | No | Output CSV file for provision report | `-OutputReport "report.csv"` |
+| `-GetInventory` | Switch | No | Get current LUN inventory | `-GetInventory` |
+| `-CreateSampleCSV` | Switch | No | Create sample CSV file | `-CreateSampleCSV` |
+| `-CreateSampleConfig` | Switch | No | Create sample config file | `-CreateSampleConfig` |
 
 #### Step-by-Step Provisioning Process
 
-1. **Prepare Your Environment**
-   ```bash
-   # Create working directory
-   mkdir powerstore_automation
-   cd powerstore_automation
-   
-   # Generate configuration template
-   python powerstore_lun_provision.py --sample-config
-   ```
+**1. Prepare Your Environment**
+```powershell
+# Create working directory
+New-Item -ItemType Directory -Path "C:\PowerStore-Automation" -Force
+Set-Location "C:\PowerStore-Automation"
 
-2. **Configure Connection**
-   ```bash
-   # Edit config.ini with your PowerStore details
-   notepad config.ini  # Windows
-   nano config.ini     # Linux/macOS
-   ```
+# Generate configuration template
+.\PowerStore-LUN-Provision.ps1 -CreateSampleConfig
+```
 
-3. **Test Connectivity**
-   ```bash
-   # Verify connection and view current inventory
-   python powerstore_lun_provision.py -c config.ini --inventory
-   ```
+**2. Configure Connection**
+```powershell
+# Edit config.json with your PowerStore details
+notepad config.json
+# OR use PowerShell ISE
+ise config.json
+```
 
-4. **Create LUN Specification**
-   ```bash
-   # Generate sample CSV template
-   python powerstore_lun_provision.py --sample-csv
-   
-   # Edit sample_luns.csv with your requirements
-   notepad sample_luns.csv  # Windows
-   nano sample_luns.csv     # Linux/macOS
-   ```
+**3. Test Connectivity**
+```powershell
+# Verify connection and view current inventory
+.\PowerStore-LUN-Provision.ps1 -ConfigFile "config.json" -GetInventory
+```
 
-5. **Validate Your CSV**
-   Ensure your CSV includes:
-   - Valid storage pool names (check with `--inventory`)
-   - Existing host names (if specifying host attachments)
-   - Unique LUN names
-   - Appropriate sizes for available capacity
+**4. Create LUN Specification**
+```powershell
+# Generate sample CSV template
+.\PowerStore-LUN-Provision.ps1 -CreateSampleCSV
 
-6. **Execute Provisioning**
-   ```bash
-   # Provision LUNs with detailed reporting
-   python powerstore_lun_provision.py -c config.ini -i sample_luns.csv -o provision_report.csv
-   ```
+# Edit sample_luns.csv with your requirements
+notepad sample_luns.csv
+```
 
-7. **Review Results**
-   ```bash
-   # Check console output for summary
-   # Review provision_report.csv for detailed results
-   # Check powerstore_provision.log for detailed logs
-   ```
+**5. Validate Your CSV**
+Ensure your CSV includes:
+- Valid storage pool names (check with `-GetInventory`)
+- Existing host names (if specifying host attachments)
+- Unique LUN names
+- Appropriate sizes for available capacity
+
+**6. Execute Provisioning**
+```powershell
+# Provision LUNs with detailed reporting
+.\PowerStore-LUN-Provision.ps1 -ConfigFile "config.json" -InputCSV "sample_luns.csv" -OutputReport "provision_report.csv"
+```
+
+**7. Review Results**
+```powershell
+# Check console output for summary
+# Review provision_report.csv for detailed results
+Import-Csv "provision_report.csv" | Format-Table -AutoSize
+
+# Check log file for detailed logs
+Get-Content "PowerStore-Provision-$(Get-Date -Format 'yyyy-MM-dd').log" -Tail 20
+```
 
 ### Report Generator Script
 
-#### Basic Usage
+#### Basic Syntax
 
-```bash
-python powerstore_report_generator.py [OPTIONS]
+```powershell
+.\PowerStore-Report-Generator.ps1 [Parameters]
 ```
 
-#### Command Line Options
+#### Parameters
 
-| Option | Description | Example |
-|--------|-------------|---------|
-| `-c, --config` | Configuration file path (required) | `-c config.ini` |
-| `-o, --output` | Output directory for reports | `-o reports` |
-| `--all-reports` | Generate all report types | `--all-reports` |
-| `--luns-only` | Generate LUNs report only | `--luns-only` |
-| `--hosts-only` | Generate hosts report only | `--hosts-only` |
-| `--pools-only` | Generate storage pools report only | `--pools-only` |
-| `--filesystems-only` | Generate file systems report only | `--filesystems-only` |
-| `--nfs-only` | Generate NFS shares report only | `--nfs-only` |
+| Parameter | Type | Required | Description | Example |
+|-----------|------|----------|-------------|---------|
+| `-ConfigFile` | String | No | Configuration file path | `-ConfigFile "config.json"` |
+| `-OutputDirectory` | String | No | Output directory for reports | `-OutputDirectory "reports"` |
+| `-AllReports` | Switch | No | Generate all report types | `-AllReports` |
+| `-LUNsOnly` | Switch | No | Generate LUNs report only | `-LUNsOnly` |
+| `-HostsOnly` | Switch | No | Generate hosts report only | `-HostsOnly` |
+| `-PoolsOnly` | Switch | No | Generate storage pools report only | `-PoolsOnly` |
+| `-FileSystemsOnly` | Switch | No | Generate file systems report only | `-FileSystemsOnly` |
+| `-NFSOnly` | Switch | No | Generate NFS shares report only | `-NFSOnly` |
 
 #### Step-by-Step Report Generation
 
-1. **Generate All Reports**
-   ```bash
-   # Create comprehensive report suite
-   python powerstore_report_generator.py -c config.ini --all-reports -o reports
-   ```
+**1. Generate All Reports**
+```powershell
+# Create comprehensive report suite
+.\PowerStore-Report-Generator.ps1 -ConfigFile "config.json" -AllReports -OutputDirectory "reports"
+```
 
-2. **Generate Specific Reports**
-   ```bash
-   # LUNs only
-   python powerstore_report_generator.py -c config.ini --luns-only
-   
-   # Storage pools only
-   python powerstore_report_generator.py -c config.ini --pools-only
-   
-   # Hosts only
-   python powerstore_report_generator.py -c config.ini --hosts-only
-   ```
+**2. Generate Specific Reports**
+```powershell
+# LUNs only
+.\PowerStore-Report-Generator.ps1 -ConfigFile "config.json" -LUNsOnly
 
-3. **Review Generated Reports**
-   ```bash
-   # Navigate to reports directory
-   cd reports
-   
-   # List generated files
-   ls -la  # Linux/macOS
-   dir     # Windows
-   ```
+# Storage pools only
+.\PowerStore-Report-Generator.ps1 -ConfigFile "config.json" -PoolsOnly
+
+# Hosts only
+.\PowerStore-Report-Generator.ps1 -ConfigFile "config.json" -HostsOnly
+```
+
+**3. Review Generated Reports**
+```powershell
+# Navigate to reports directory
+Set-Location "reports"
+
+# List generated files
+Get-ChildItem -Filter "*.csv" | Sort-Object LastWriteTime -Descending
+
+# Preview a report
+Import-Csv "PowerStore_LUNs_TableExportData_2025_06_02_14_30_15.csv" | Select-Object -First 10 | Format-Table
+```
 
 ## CSV File Formats
 
@@ -290,7 +283,7 @@ python powerstore_report_generator.py [OPTIONS]
 | Column | Type | Required | Description | Example |
 |--------|------|----------|-------------|---------|
 | Name | String | Yes | Unique LUN name | `prod_app_lun_01` |
-| Size_GB | Float | Yes | LUN size in GB | `1024` |
+| Size_GB | Number | Yes | LUN size in GB | `1024` |
 | Pool | String | Yes | Storage pool name | `Pool0` |
 | Description | String | No | LUN description | `Production application data` |
 | Host_Names | String | No | Semicolon-separated host names | `host1;host2;host3` |
@@ -309,7 +302,7 @@ test_app_lun_01,256,Pool0,Test application,testhost1,Yes
 
 1. **No Empty Required Fields**: Name, Size_GB, and Pool are mandatory
 2. **Unique Names**: LUN names must be unique across the PowerStore array
-3. **Valid Pool Names**: Pool names must exist (check with `--inventory`)
+3. **Valid Pool Names**: Pool names must exist (check with `-GetInventory`)
 4. **Host Names**: Must match exactly with PowerStore host registrations
 5. **Size Limits**: Respect storage pool capacity limits
 6. **Character Encoding**: Use UTF-8 encoding
@@ -325,15 +318,15 @@ Contains detailed results for each LUN provisioning attempt:
 
 | Column | Description |
 |--------|-------------|
-| name | LUN name from CSV |
-| status | SUCCESS, FAILED, or VALIDATION_FAILED |
-| message | Detailed status message |
-| lun_id | PowerStore LUN ID (if successful) |
-| wwn | LUN World Wide Name |
-| size_gb | Requested size in GB |
-| pool | Storage pool used |
-| hosts_attached | Successfully attached hosts |
-| timestamp | Provision attempt timestamp |
+| Name | LUN name from CSV |
+| Status | SUCCESS, FAILED, or VALIDATION_FAILED |
+| Message | Detailed status message |
+| LUN_ID | PowerStore LUN ID (if successful) |
+| WWN | LUN World Wide Name |
+| Size_GB | Requested size in GB |
+| Pool | Storage pool used |
+| Hosts_Attached | Successfully attached hosts (semicolon-separated) |
+| Timestamp | Provision attempt timestamp |
 
 ### Inventory Reports
 
@@ -349,6 +342,7 @@ The report generator creates files matching your existing CSV export format:
 
 #### Successful Provisioning
 ```
+============================================================
 PowerStore LUN Provisioning Report
 ============================================================
 Total LUN requests: 3
@@ -378,447 +372,547 @@ Success rate: 100.0%
 
 ### Common Issues and Solutions
 
-#### 1. Connection Issues
+#### 1. PowerShell Execution Policy Issues
+
+**Error**: `cannot be loaded because running scripts is disabled on this system`
+
+**Solutions**:
+```powershell
+# Check current execution policy
+Get-ExecutionPolicy
+
+# Set execution policy for current user (recommended)
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# Alternative: Bypass for current session only
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+
+# Run script with bypass (one-time)
+powershell.exe -ExecutionPolicy Bypass -File ".\PowerStore-LUN-Provision.ps1" -ConfigFile "config.json" -GetInventory
+```
+
+#### 2. Connection Issues
 
 **Error**: `Failed to connect to PowerStore`
 
 **Solutions**:
-```bash
+```powershell
 # Check network connectivity
-ping 192.168.1.100
+Test-NetConnection -ComputerName "192.168.1.100" -Port 443
 
-# Verify PowerStore management interface
-curl -k https://192.168.1.100/swaggerui
+# Verify PowerStore management interface accessibility
+try {
+    $response = Invoke-WebRequest -Uri "https://192.168.1.100" -UseBasicParsing -TimeoutSec 10
+    Write-Host "PowerStore web interface accessible" -ForegroundColor Green
+} catch {
+    Write-Host "PowerStore web interface not accessible: $($_.Exception.Message)" -ForegroundColor Red
+}
 
-# Test credentials manually
-# (Try logging into PowerStore Manager web interface)
+# Test SSL/TLS connectivity
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 ```
 
-#### 2. Authentication Failures
+#### 3. Authentication Failures
 
 **Error**: `Authentication failed`
 
 **Solutions**:
-- Verify username and password in `config.ini`
-- Check if account is locked in PowerStore
-- Ensure user has required permissions
-- Try logging in via web interface to test credentials
+```powershell
+# Verify credentials in config.json
+$config = Get-Content "config.json" | ConvertFrom-Json
+Write-Host "Username: $($config.PowerStore.Username)"
+Write-Host "Management IP: $($config.PowerStore.ManagementIP)"
 
-#### 3. Permission Errors
+# Test credentials manually via PowerStore Manager web interface
+Start-Process "https://$($config.PowerStore.ManagementIP)"
 
-**Error**: `Insufficient permissions`
+# Check if account is locked or password expired
+# Contact PowerStore administrator if needed
+```
+
+#### 4. SSL Certificate Issues
+
+**Error**: `The underlying connection was closed: Could not establish trust relationship`
 
 **Solutions**:
-- Contact PowerStore administrator
-- Verify user role includes:
-  - Storage Provisioning
-  - Host Management
-  - Configuration Management
+```powershell
+# For testing environments, disable SSL verification in config.json
+{
+  "PowerStore": {
+    "VerifySSL": false
+  }
+}
 
-#### 4. CSV Format Errors
+# For production, add PowerStore certificate to trusted store
+# Export certificate from PowerStore Manager and install it
+
+# Force TLS 1.2
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+```
+
+#### 5. CSV Format Errors
 
 **Error**: `Missing required field` or `Invalid CSV format`
 
 **Solutions**:
-```bash
+```powershell
 # Generate new sample CSV
-python powerstore_lun_provision.py --sample-csv
-
-# Check CSV encoding (should be UTF-8)
-file -I your_file.csv  # Linux/macOS
+.\PowerStore-LUN-Provision.ps1 -CreateSampleCSV
 
 # Validate CSV structure
-head -5 your_file.csv
+$csv = Import-Csv "your_file.csv"
+$csv | Get-Member
+$csv | Select-Object -First 5 | Format-Table
+
+# Check for required columns
+$requiredColumns = @("Name", "Size_GB", "Pool")
+$csvColumns = ($csv | Get-Member -MemberType NoteProperty).Name
+$missingColumns = $requiredColumns | Where-Object { $_ -notin $csvColumns }
+if ($missingColumns) {
+    Write-Host "Missing required columns: $($missingColumns -join ', ')" -ForegroundColor Red
+}
 ```
 
-#### 5. Storage Pool Issues
+#### 6. Storage Pool Issues
 
 **Error**: `Storage pool 'PoolX' does not exist`
 
 **Solutions**:
-```bash
+```powershell
 # List available pools
-python powerstore_lun_provision.py -c config.ini --inventory
+.\PowerStore-LUN-Provision.ps1 -ConfigFile "config.json" -GetInventory | Select-Object Name, Pool | Sort-Object Pool -Unique
 
 # Check pool names match exactly (case-sensitive)
 # Update CSV with correct pool names
 ```
 
-#### 6. Host Mapping Issues
+#### 7. Host Mapping Issues
 
 **Error**: `Host 'hostname' does not exist`
 
 **Solutions**:
-```bash
-# Generate hosts report
-python powerstore_report_generator.py -c config.ini --hosts-only
+```powershell
+# Generate hosts report to see available hosts
+.\PowerStore-Report-Generator.ps1 -ConfigFile "config.json" -HostsOnly
 
 # Check exact host names in PowerStore
-# Update CSV with correct host names
+$hostsReport = Import-Csv "PowerStore_Hosts_TableExportData_*.csv"
+$hostsReport | Select-Object Name | Sort-Object Name
+
 # Leave Host_Names column empty if not mapping immediately
+# Map hosts manually after LUN creation if needed
 ```
 
-### Debug Mode
+### Debug Mode and Logging
 
-Enable detailed logging:
+#### Enable Verbose Logging
 
-```bash
-# Edit config.ini
-[logging]
-level = DEBUG
-log_file = powerstore_provision.log
-
+```powershell
 # Run with verbose output
-python powerstore_lun_provision.py -c config.ini -i luns.csv -o report.csv 2>&1 | tee console.log
+.\PowerStore-LUN-Provision.ps1 -ConfigFile "config.json" -InputCSV "luns.csv" -OutputReport "report.csv" -Verbose
+
+# Check log files
+Get-ChildItem -Filter "PowerStore-*.log" | Sort-Object LastWriteTime -Descending | Select-Object -First 5
+
+# View recent log entries
+Get-Content "PowerStore-Provision-$(Get-Date -Format 'yyyy-MM-dd').log" -Tail 50
+
+# Search for errors in logs
+Select-String -Path "PowerStore-Provision-*.log" -Pattern "ERROR" | Select-Object -Last 10
 ```
 
-### Log File Analysis
+#### PowerShell Debugging
 
-Check `powerstore_provision.log` for detailed information:
+```powershell
+# Add debug statements to script (for troubleshooting)
+$DebugPreference = "Continue"
+Write-Debug "Debug information here"
 
-```bash
-# View recent log entries
-tail -50 powerstore_provision.log
-
-# Search for errors
-grep -i error powerstore_provision.log
-
-# Search for specific LUN
-grep "lun_name" powerstore_provision.log
+# Use try-catch for detailed error information
+try {
+    # Your code here
+} catch {
+    Write-Host "Error details:" -ForegroundColor Red
+    Write-Host "Message: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Line: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
+    Write-Host "Command: $($_.InvocationInfo.Line.Trim())" -ForegroundColor Red
+}
 ```
 
 ## Advanced Configuration
 
 ### Environment Variables
 
-You can use environment variables instead of storing passwords in config files:
+Store sensitive information in environment variables instead of configuration files:
 
-```bash
-# Set environment variables
-export POWERSTORE_PASSWORD="your_secure_password"
-export POWERSTORE_USERNAME="admin"
-export POWERSTORE_IP="192.168.1.100"
+```powershell
+# Set environment variables (Windows)
+[Environment]::SetEnvironmentVariable("POWERSTORE_PASSWORD", "your_secure_password", "User")
+[Environment]::SetEnvironmentVariable("POWERSTORE_USERNAME", "admin", "User")
+[Environment]::SetEnvironmentVariable("POWERSTORE_IP", "192.168.1.100", "User")
+
+# Set environment variables (PowerShell Core/Linux)
+$env:POWERSTORE_PASSWORD = "your_secure_password"
+$env:POWERSTORE_USERNAME = "admin"
+$env:POWERSTORE_IP = "192.168.1.100"
+
+# Update config.json to use environment variables
+{
+  "PowerStore": {
+    "ManagementIP": "${env:POWERSTORE_IP}",
+    "Username": "${env:POWERSTORE_USERNAME}",
+    "Password": "${env:POWERSTORE_PASSWORD}",
+    "VerifySSL": true
+  }
+}
 ```
 
-Update `config.ini`:
-```ini
-[powerstore]
-management_ip = ${POWERSTORE_IP}
-username = ${POWERSTORE_USERNAME}
-password = ${POWERSTORE_PASSWORD}
-verify_ssl = True
-```
+### Batch Processing for Large Deployments
 
-### Batch Processing
-
-For large LUN deployments:
-
-```bash
+```powershell
 # Split large CSV into smaller batches
-split -l 50 large_luns.csv batch_
+function Split-CSVFile {
+    param(
+        [string]$InputFile,
+        [int]$BatchSize = 50
+    )
+    
+    $data = Import-Csv $InputFile
+    $batches = [Math]::Ceiling($data.Count / $BatchSize)
+    
+    for ($i = 0; $i -lt $batches; $i++) {
+        $start = $i * $BatchSize
+        $end = [Math]::Min(($i + 1) * $BatchSize - 1, $data.Count - 1)
+        $batch = $data[$start..$end]
+        
+        $batchFile = "batch_$($i + 1)_of_$batches.csv"
+        $batch | Export-Csv -Path $batchFile -NoTypeInformation
+        Write-Host "Created batch file: $batchFile"
+    }
+}
 
 # Process batches sequentially
-for batch in batch_*; do
-    echo "Processing $batch..."
-    python powerstore_lun_provision.py -c config.ini -i "$batch" -o "report_$batch.csv"
-    sleep 10  # Brief pause between batches
-done
+function Start-BatchProvisioning {
+    param(
+        [string]$ConfigFile,
+        [string]$OutputDirectory = "batch_reports"
+    )
+    
+    if (-not (Test-Path $OutputDirectory)) {
+        New-Item -ItemType Directory -Path $OutputDirectory -Force
+    }
+    
+    $batchFiles = Get-ChildItem -Filter "batch_*.csv" | Sort-Object Name
+    
+    foreach ($batchFile in $batchFiles) {
+        Write-Host "Processing $($batchFile.Name)..." -ForegroundColor Cyan
+        
+        $reportFile = Join-Path $OutputDirectory "report_$($batchFile.BaseName).csv"
+        
+        .\PowerStore-LUN-Provision.ps1 -ConfigFile $ConfigFile -InputCSV $batchFile.FullName -OutputReport $reportFile
+        
+        # Brief pause between batches
+        Start-Sleep -Seconds 10
+    }
+}
+
+# Usage
+Split-CSVFile -InputFile "large_luns.csv" -BatchSize 50
+Start-BatchProvisioning -ConfigFile "config.json"
 ```
 
-### Automated Scheduling
+### Automated Scheduling with Task Scheduler
 
-#### Windows (Task Scheduler)
+#### Create Scheduled Task (Windows)
 
-1. Create batch file (`provision_luns.bat`):
-```batch
-@echo off
-cd C:\powerstore_automation
-python powerstore_lun_provision.py -c config.ini -i daily_luns.csv -o daily_report.csv
+```powershell
+# Create scheduled task for daily LUN provisioning
+$action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-ExecutionPolicy Bypass -File `"C:\PowerStore-Automation\PowerStore-LUN-Provision.ps1`" -ConfigFile `"C:\PowerStore-Automation\config.json`" -InputCSV `"C:\PowerStore-Automation\daily_luns.csv`" -OutputReport `"C:\PowerStore-Automation\daily_report.csv`""
+
+$trigger = New-ScheduledTaskTrigger -Daily -At "02:00AM"
+
+$principal = New-ScheduledTaskPrincipal -UserId "DOMAIN\ServiceAccount" -LogonType ServiceAccount
+
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnDemand -DontStopIfGoingOnBatteries -PowerManagement
+
+Register-ScheduledTask -TaskName "PowerStore Daily LUN Provisioning" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "Daily PowerStore LUN provisioning automation"
 ```
 
-2. Schedule in Task Scheduler:
-   - Action: Start a program
-   - Program: `C:\powerstore_automation\provision_luns.bat`
-   - Schedule: As required
+#### Create Scheduled Task for Weekly Reports
 
-#### Linux (Crontab)
+```powershell
+# Create scheduled task for weekly reports
+$action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-ExecutionPolicy Bypass -File `"C:\PowerStore-Automation\PowerStore-Report-Generator.ps1`" -ConfigFile `"C:\PowerStore-Automation\config.json`" -AllReports -OutputDirectory `"C:\PowerStore-Automation\weekly_reports`""
 
-```bash
-# Edit crontab
-crontab -e
+$trigger = New-ScheduledTaskTrigger -Weekly -WeeksInterval 1 -DaysOfWeek Sunday -At "01:00AM"
 
-# Add daily execution at 2 AM
-0 2 * * * cd /opt/powerstore_automation && python powerstore_lun_provision.py -c config.ini -i daily_luns.csv -o daily_report.csv
-
-# Add weekly reports on Sundays at 1 AM
-0 1 * * 0 cd /opt/powerstore_automation && python powerstore_report_generator.py -c config.ini --all-reports -o weekly_reports
+Register-ScheduledTask -TaskName "PowerStore Weekly Reports" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "Weekly PowerStore inventory reports"
 ```
 
-### Integration with ITSM
+### Integration with ITSM Systems
 
-#### ServiceNow Integration
+#### ServiceNow Integration Example
 
-Create wrapper script for ServiceNow integration:
-
-```python
-#!/usr/bin/env python3
-"""ServiceNow PowerStore Integration"""
-
-import sys
-import json
-import subprocess
-
-def provision_from_servicenow(ticket_data):
-    """Process ServiceNow ticket data"""
-    # Convert ServiceNow data to CSV
-    # Call provisioning script
-    # Return results to ServiceNow
-    pass
-
-if __name__ == "__main__":
-    ticket_json = sys.argv[1]
-    ticket_data = json.loads(ticket_json)
-    result = provision_from_servicenow(ticket_data)
-    print(json.dumps(result))
+```powershell
+# ServiceNow PowerStore Integration Wrapper
+function Invoke-ServiceNowProvisioning {
+    param(
+        [string]$TicketNumber,
+        [hashtable]$LUNRequests
+    )
+    
+    try {
+        # Convert ServiceNow data to CSV
+        $csvData = @()
+        foreach ($request in $LUNRequests.GetEnumerator()) {
+            $csvData += [PSCustomObject]@{
+                Name = $request.Value.Name
+                Size_GB = $request.Value.SizeGB
+                Pool = $request.Value.Pool
+                Description = "ServiceNow Ticket: $TicketNumber"
+                Host_Names = $request.Value.Hosts -join ";"
+                Thin_Provisioned = $request.Value.ThinProvisioned
+            }
+        }
+        
+        # Export to temporary CSV
+        $tempCSV = "ServiceNow_$TicketNumber.csv"
+        $csvData | Export-Csv -Path $tempCSV -NoTypeInformation
+        
+        # Execute provisioning
+        $reportFile = "ServiceNow_Report_$TicketNumber.csv"
+        .\PowerStore-LUN-Provision.ps1 -ConfigFile "config.json" -InputCSV $tempCSV -OutputReport $reportFile
+        
+        # Parse results and return to ServiceNow
+        $results = Import-Csv $reportFile
+        
+        # Clean up temporary files
+        Remove-Item $tempCSV -Force
+        
+        return $results
+    }
+    catch {
+        Write-Error "ServiceNow provisioning failed: $($_.Exception.Message)"
+        throw
+    }
+}
 ```
 
 ## Security Considerations
 
 ### User Account Security
 
-1. **Create Dedicated Service Account**:
-   ```
-   Username: svc_automation
-   Role: Storage_Provisioner (custom role)
-   Description: PowerStore automation service account
-   ```
+#### Create Dedicated Service Account
 
-2. **Minimum Required Permissions**:
-   - Volume creation and modification
-   - Host mapping and unmapping
-   - Storage pool read access
-   - File system read access
+```powershell
+# PowerStore service account configuration recommendations
+@"
+Account Details:
+- Username: svc_powerstore_automation
+- Role: Custom role with minimum required permissions
+- Description: PowerStore automation service account
+- Password Policy: Strong password, 90-day rotation
+- Login Restrictions: Restrict to management network IPs
+"@
+```
 
-3. **Account Management**:
-   - Regular password rotation (quarterly)
-   - Monitor login attempts
-   - Disable when not in use
-   - Use strong passwords (12+ characters)
+#### Minimum Required Permissions
+
+Create a custom role in PowerStore with these permissions:
+- **Volume Management**: Create, modify, delete volumes
+- **Host Management**: Map/unmap volumes to hosts
+- **Storage Pool**: Read access to storage pools
+- **File System**: Read access for reporting
+- **NAS Management**: Read access for NFS reporting
+
+### Credential Management
+
+#### Secure Password Storage
+
+```powershell
+# Use Windows Credential Manager for password storage
+function Set-PowerStoreCredential {
+    param(
+        [string]$Username,
+        [securestring]$Password,
+        [string]$Target = "PowerStore_Automation"
+    )
+    
+    # Store credential in Windows Credential Manager
+    cmdkey /generic:$Target /user:$Username /pass:$([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)))
+}
+
+function Get-PowerStoreCredential {
+    param(
+        [string]$Target = "PowerStore_Automation"
+    )
+    
+    # Retrieve credential from Windows Credential Manager
+    return Get-StoredCredential -Target $Target
+}
+
+# Usage
+$securePassword = Read-Host -AsSecureString -Prompt "Enter PowerStore password"
+Set-PowerStoreCredential -Username "admin" -Password $securePassword
+```
+
+#### Environment-Based Configuration
+
+```powershell
+# Production configuration using environment variables
+function Import-SecureConfig {
+    param([string]$ConfigPath)
+    
+    if (Test-Path $ConfigPath) {
+        $config = Get-Content $ConfigPath | ConvertFrom-Json
+        
+        # Override with environment variables if they exist
+        if ($env:POWERSTORE_IP) { $config.PowerStore.ManagementIP = $env:POWERSTORE_IP }
+        if ($env:POWERSTORE_USERNAME) { $config.PowerStore.Username = $env:POWERSTORE_USERNAME }
+        if ($env:POWERSTORE_PASSWORD) { $config.PowerStore.Password = $env:POWERSTORE_PASSWORD }
+        
+        return $config
+    }
+    
+    throw "Configuration file not found: $ConfigPath"
+}
+```
 
 ### Network Security
 
-1. **SSL/TLS Configuration**:
-   ```ini
-   [powerstore]
-   verify_ssl = True  # Always use in production
-   ```
+#### SSL/TLS Configuration
 
-2. **Network Isolation**:
-   - Run scripts from management network
-   - Use VPN for remote access
-   - Implement firewall rules
+```powershell
+# Force TLS 1.2 for secure communications
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-3. **Certificate Management**:
-   ```bash
-   # Download PowerStore certificate
-   openssl s_client -connect powerstore.domain.com:443 -showcerts
-   
-   # Add to trusted certificates
-   cp powerstore.crt /etc/ssl/certs/
-   ```
+# For production environments, always verify SSL certificates
+$config.PowerStore.VerifySSL = $true
+
+# Custom certificate validation (if using self-signed certificates)
+function Set-CustomCertificateValidation {
+    [Net.ServicePointManager]::ServerCertificateValidationCallback = {
+        param($sender, $certificate, $chain, $sslPolicyErrors)
+        
+        # Add custom certificate validation logic here
+        # Return $true only for trusted certificates
+        return $sslPolicyErrors -eq [Net.Security.SslPolicyErrors]::None
+    }
+}
+```
 
 ### File Security
 
-1. **Configuration File Protection**:
-   ```bash
-   # Set restrictive permissions
-   chmod 600 config.ini
-   chown user:user config.ini
-   ```
+#### Secure Configuration Files
 
-2. **Log File Security**:
-   ```bash
-   # Secure log directory
-   chmod 750 /var/log/powerstore/
-   
-   # Rotate logs regularly
-   logrotate /etc/logrotate.d/powerstore
-   ```
+```powershell
+# Set restrictive permissions on configuration files
+function Set-SecureFilePermissions {
+    param([string]$FilePath)
+    
+    if (Test-Path $FilePath) {
+        # Remove inheritance and set explicit permissions
+        $acl = Get-Acl $FilePath
+        $acl.SetAccessRuleProtection($true, $false)
+        
+        # Add current user with full control
+        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+            [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
+            "FullControl",
+            "Allow"
+        )
+        $acl.SetAccessRule($accessRule)
+        
+        # Add SYSTEM with full control
+        $systemRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+            "NT AUTHORITY\SYSTEM",
+            "FullControl",
+            "Allow"
+        )
+        $acl.SetAccessRule($systemRule)
+        
+        Set-Acl -Path $FilePath -AclObject $acl
+        Write-Host "Secured permissions for: $FilePath" -ForegroundColor Green
+    }
+}
 
-3. **CSV File Handling**:
-   - Encrypt sensitive data in transit
-   - Secure deletion after processing
-   - Access logging for audit trails
+# Usage
+Set-SecureFilePermissions -FilePath "config.json"
+```
+
+#### Log File Management
+
+```powershell
+# Implement secure log rotation
+function Start-LogRotation {
+    param(
+        [string]$LogDirectory = ".",
+        [int]$MaxFiles = 10,
+        [int]$MaxSizeMB = 50
+    )
+    
+    $logFiles = Get-ChildItem -Path $LogDirectory -Filter "PowerStore-*.log" | Sort-Object LastWriteTime
+    
+    # Remove old log files if too many
+    if ($logFiles.Count -gt $MaxFiles) {
+        $filesToRemove = $logFiles | Select-Object -First ($logFiles.Count - $MaxFiles)
+        $filesToRemove | Remove-Item -Force
+        Write-Host "Removed $($filesToRemove.Count) old log files" -ForegroundColor Yellow
+    }
+    
+    # Compress large log files
+    foreach ($logFile in $logFiles) {
+        if (($logFile.Length / 1MB) -gt $MaxSizeMB) {
+            Compress-Archive -Path $logFile.FullName -DestinationPath "$($logFile.FullName).zip" -Force
+            Remove-Item $logFile.FullName -Force
+            Write-Host "Compressed large log file: $($logFile.Name)" -ForegroundColor Yellow
+        }
+    }
+}
+```
 
 ## Examples
 
-### Example 1: Simple LUN Provisioning
+### Example 1: Simple Application LUN Provisioning
 
-**Scenario**: Provision 3 LUNs for a new application
+**Scenario**: Provision 3 LUNs for a new web application
 
-**Steps**:
-1. Create CSV file (`app_luns.csv`):
+**Step 1**: Create CSV file (`web_app_luns.csv`)
 ```csv
 Name,Size_GB,Pool,Description,Host_Names,Thin_Provisioned
-app_data_01,1024,Pool0,Application data volume,apphost1;apphost2,Yes
-app_logs_01,256,Pool0,Application logs volume,apphost1;apphost2,Yes
-app_temp_01,512,Pool0,Application temp volume,apphost1,Yes
-```
+webapp_data_01,1024,Pool0,Web application data volume,webhost1;webhost2,Yes
+webapp_logs_01,256,# PowerStore Automation Scripts (PowerShell)
 
-2. Execute provisioning:
-```bash
-python powerstore_lun_provision.py -c config.ini -i app_luns.csv -o app_provision_report.csv
-```
+Comprehensive Dell PowerStore LUN provisioning and reporting automation scripts written in PowerShell that match your existing CSV export formats.
 
-3. Review results:
-```bash
-cat app_provision_report.csv
-```
+## 📋 Table of Contents
 
-### Example 2: Database Environment Setup
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Quick Start Guide](#quick-start-guide)
+- [Detailed Usage Instructions](#detailed-usage-instructions)
+- [CSV File Formats](#csv-file-formats)
+- [Report Outputs](#report-outputs)
+- [Troubleshooting](#troubleshooting)
+- [Advanced Configuration](#advanced-configuration)
+- [Security Considerations](#security-considerations)
+- [Examples](#examples)
 
-**Scenario**: Provision LUNs for production database cluster
+## Overview
 
-**Steps**:
-1. Create CSV file (`db_cluster_luns.csv`):
-```csv
-Name,Size_GB,Pool,Description,Host_Names,Thin_Provisioned
-prod_db_data_01,4096,Pool0,Primary database data,dbhost1,Yes
-prod_db_data_02,4096,Pool0,Secondary database data,dbhost2,Yes
-prod_db_logs_01,1024,Pool1,Database transaction logs,dbhost1;dbhost2,Yes
-prod_db_backup_01,8192,Pool1,Database backup storage,,No
-```
+This automation suite provides two main PowerShell scripts:
 
-2. Validate storage capacity first:
-```bash
-python powerstore_lun_provision.py -c config.ini --inventory
-```
+1. **`PowerStore-LUN-Provision.ps1`** - Provisions LUNs based on CSV input and generates detailed reports
+2. **`PowerStore-Report-Generator.ps1`** - Generates comprehensive inventory reports matching your existing CSV exports
 
-3. Execute provisioning:
-```bash
-python powerstore_lun_provision.py -c config.ini -i db_cluster_luns.csv -o db_provision_report.csv
-```
+Both scripts use PowerStore REST API directly and support your existing data formats without requiring additional Python dependencies.
 
-### Example 3: Monthly Capacity Reporting
+## Prerequisites
 
-**Scenario**: Generate monthly capacity reports for management
-
-**Steps**:
-1. Create automated script (`monthly_report.sh`):
-```bash
-#!/bin/bash
-REPORT_DATE=$(date +%Y_%m)
-REPORT_DIR="/reports/monthly/$REPORT_DATE"
-
-mkdir -p "$REPORT_DIR"
-
-python powerstore_report_generator.py \
-    -c /opt/powerstore/config.ini \
-    --all-reports \
-    -o "$REPORT_DIR"
-
-# Email reports to management
-tar -czf "$REPORT_DIR.tar.gz" "$REPORT_DIR"
-echo "Monthly PowerStore capacity report attached" | \
-    mail -s "PowerStore Monthly Report - $REPORT_DATE" \
-    -A "$REPORT_DIR.tar.gz" \
-    management@company.com
-```
-
-2. Schedule in crontab:
-```bash
-# First day of each month at 6 AM
-0 6 1 * * /opt/powerstore/monthly_report.sh
-```
-
-### Example 4: Development Environment Automation
-
-**Scenario**: Automated dev environment provisioning
-
-**Steps**:
-1. Create template CSV (`dev_template.csv`):
-```csv
-Name,Size_GB,Pool,Description,Host_Names,Thin_Provisioned
-dev_${ENV}_app_01,512,Pool0,Dev environment app data,${ENV}host1,Yes
-dev_${ENV}_db_01,1024,Pool0,Dev environment database,${ENV}host1,Yes
-```
-
-2. Create environment provisioning script:
-```python
-#!/usr/bin/env python3
-import sys
-import pandas as pd
-import subprocess
-
-def create_dev_environment(env_name):
-    # Read template
-    df = pd.read_csv('dev_template.csv')
-    
-    # Replace placeholders
-    df['Name'] = df['Name'].str.replace('${ENV}', env_name)
-    df['Host_Names'] = df['Host_Names'].str.replace('${ENV}', env_name)
-    df['Description'] = df['Description'].str.replace('${ENV}', env_name)
-    
-    # Save customised CSV
-    output_file = f'dev_{env_name}_luns.csv'
-    df.to_csv(output_file, index=False)
-    
-    # Provision LUNs
-    cmd = [
-        'python', 'powerstore_lun_provision.py',
-        '-c', 'config.ini',
-        '-i', output_file,
-        '-o', f'dev_{env_name}_report.csv'
-    ]
-    
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    return result.returncode == 0
-
-if __name__ == "__main__":
-    env_name = sys.argv[1]
-    success = create_dev_environment(env_name)
-    print(f"Environment {env_name} provisioning: {'SUCCESS' if success else 'FAILED'}")
-```
-
-3. Usage:
-```bash
-python create_dev_env.py test123
-python create_dev_env.py staging456
-```
-
----
-
-## Support and Maintenance
-
-### Regular Maintenance Tasks
-
-1. **Weekly**: Review provision logs for errors
-2. **Monthly**: Update capacity reports
-3. **Quarterly**: Rotate service account passwords
-4. **Annually**: Review and update security configurations
-
-### Getting Help
-
-1. **Check logs**: Always review `powerstore_provision.log` first
-2. **Test connectivity**: Use `--inventory` to verify connection
-3. **Validate CSV**: Use sample CSV as template
-4. **Check permissions**: Verify PowerStore user permissions
-
-### Contact Information
-
-For script-related issues:
-- Review this README thoroughly
-- Check log files for detailed error messages
-- Verify CSV format against samples
-- Test with smaller datasets first
-
-For PowerStore-specific issues:
-- Consult Dell PowerStore documentation
-- Contact Dell support for array issues
-- Check Dell PowerStore community forums
-
----
-
-**Last Updated**: June 2025  
-**Version**: 1.0  
-**Compatibility**: PowerStore OS 1.0+, Python 3.8+
+### System Requirements
+- **PowerShell**: 5.1 or higher (Windows PowerShell or PowerShell Core)
+- **Operating System**: Windows 10/11, Windows Server 2016+, or PowerShell Core on Linux/macOS
+- **Network**: HTTPS connectivity to PowerStore management interface
+- **Memory**:
