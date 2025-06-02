@@ -1,6 +1,6 @@
 # PowerStore Automation Scripts (PowerShell)
 
-Comprehensive Dell PowerStore LUN provisioning and reporting automation scripts written in PowerShell that match your existing CSV export formats.
+ Dell PowerStore LUN provisioning and reporting automation scripts written in PowerShell that match existing CSV export formats.
 
 ## 📋 Table of Contents
 
