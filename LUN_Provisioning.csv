@@ -1,0 +1,9 @@
+Name,Size_GB,Pool,Description,Host_Names,Thin_Provisioned,Priority
+prod_web_lun_01,1024,Pool0,Production web server storage,webhost01;webhost02,Yes,High
+prod_db_lun_01,2048,Pool0,Production database storage,dbhost01,Yes,Critical
+prod_app_lun_01,1536,Pool0,Production application storage,apphost01;apphost02;apphost03,Yes,High
+dev_web_lun_01,512,Pool0,Development web server storage,devhost01,Yes,Medium
+dev_db_lun_01,1024,Pool0,Development database storage,devhost02,Yes,Medium
+test_app_lun_01,256,Pool0,Test application storage,testhost01,Yes,Low
+backup_lun_01,5120,Pool1,Backup storage volume,,No,Low
+archive_lun_01,10240,Pool1,Archive storage volume,,No,Low
